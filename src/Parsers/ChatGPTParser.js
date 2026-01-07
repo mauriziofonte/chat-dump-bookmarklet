@@ -9,7 +9,8 @@ const ChatGPTParser = {
 		const conversations = []
 		body.querySelectorAll('div[data-message-author-role]').forEach((n, i) => {
 			const role = n.getAttribute('data-message-author-role') === 'user' ? 'PROMPT' : 'RESPONSE'
-			const contentNode = n.querySelector('.text-token-text-primary, .markdown') // Adapt to potential class changes
+			// .markdown for assistant responses, .whitespace-pre-wrap for user prompts
+			const contentNode = n.querySelector('.markdown') || n.querySelector('.whitespace-pre-wrap')
 			if (!contentNode) return
 
 			conversations.push(

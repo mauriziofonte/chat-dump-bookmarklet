@@ -7,23 +7,36 @@ const ClaudeParser = {
 	matches: (hostname) => hostname.includes('claude.ai'),
 	parse: (body) => {
 		const conversations = []
-		// Claude's structure is turn-based, each in a group.
-		body.querySelectorAll('div.group.relative').forEach((n, i) => {
-			const userMsg = n.querySelector('div.font-user-message')
-			const claudeMsg = n.querySelector('div.font-claude-response')
-			if (!userMsg && !claudeMsg) return
 
-			const role = userMsg ? 'PROMPT' : 'RESPONSE'
-			const contentNode = userMsg || claudeMsg
+		// Select both user messages and Claude responses in a single query to preserve DOM order
+		const selector = '[data-testid="user-message"], [data-is-streaming] > .font-claude-response'
+		let promptNum = 0
+		let responseNum = 0
 
-			conversations.push(
-				createConversationItem({
-					role,
-					num: Math.trunc(i / 2) + 1,
-					content: contentNode.innerHTML,
-				}),
-			)
+		body.querySelectorAll(selector).forEach((n) => {
+			const isUserMessage = n.hasAttribute('data-testid') && n.getAttribute('data-testid') === 'user-message'
+
+			if (isUserMessage) {
+				promptNum++
+				conversations.push(
+					createConversationItem({
+						role: 'PROMPT',
+						num: promptNum,
+						content: n.innerHTML,
+					}),
+				)
+			} else {
+				responseNum++
+				conversations.push(
+					createConversationItem({
+						role: 'RESPONSE',
+						num: responseNum,
+						content: n.innerHTML,
+					}),
+				)
+			}
 		})
+
 		return conversations
 	},
 }

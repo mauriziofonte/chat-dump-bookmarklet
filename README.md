@@ -142,6 +142,35 @@ const parsers = [
 
 After these changes, run `npm run build` and test your new parser using the debugging workflow described above.
 
+## Changelog
+
+### v1.2.0 (2026-01-07)
+
+**Parser Fixes:**
+
+- **Claude Parser** - Fixed critical issue where prompts and responses were not interleaved correctly. Changed to single-query selector to preserve DOM order.
+- **Claude Parser** - Updated selectors to use stable `data-testid="user-message"` and `[data-is-streaming] > .font-claude-response` instead of unreliable class-based selectors.
+- **ChatGPT Parser** - Fixed content selector: replaced non-existent `.text-token-text-primary` with `.markdown || .whitespace-pre-wrap` fallback.
+
+**Code Block Cleanup:**
+
+- **All Platforms** - Code blocks now properly extract only the code content, removing UI elements (language labels, copy buttons, syntax highlighting spans).
+- **ChatGPT** - Removed "Copy code" button text and language labels that appeared before fenced code blocks.
+- **Claude** - Removed language label divs (e.g., "bash", "json") that appeared as stray text before code blocks.
+- **Gemini** - Removed `.code-block-decoration` headers containing language labels and copy buttons. Added language extraction from decoration span before removal.
+
+**Table UI Cleanup:**
+
+- **Gemini** - Removed "Export to Sheets" button text and other table footer UI elements (`.table-footer`, `.export-sheets-*`, `.hide-from-message-*`).
+
+**Build:**
+
+- Bundle size: ~55KB (compatible with Firefox bookmarklet limits)
+
+### v1.1.0
+
+- Initial release with support for ChatGPT, Gemini, and Claude.
+
 ### License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
