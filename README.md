@@ -44,25 +44,33 @@ If you prefer a more hands-on approach, you can clone this repository, install t
     npm run build
     ```
 
-    This command will bundle the code as a bookmarklet (via `esbuild-plugin-bookmarklet`) and create the `dist/chatdump.bookmarklet.js` minified bookmarklet file.
+    This command bundles and minifies the code with `esbuild`, URI-encodes it with the `javascript:void` prefix, and writes the `dist/chatdump.bookmarklet.js` bookmarklet file. The build fails if the encoded output exceeds the 62KB browser bookmarklet limit.
 
 ## Development and Debugging
 
-Debugging a bookmarklet can be tricky due to its "one-liner" nature. The recommended workflow is a process of trial and error using your browser's developer console.
+The recommended workflow is to test the parsers offline against saved HTML dumps, using the `jsdom`-based harness in `test/` (installed as a dev dependency).
 
-1. Make your code changes in the `src/` directory.
-2. Run the build command to generate the bundled, un-minified file:
+1. Open a conversation on a supported platform and save the full page as HTML in the project root, named `<platform>-<n>.html` (e.g. `chatgpt-1.html`, `gemini-1.html`, `claude-1.html`). These files are gitignored.
+2. Make your code changes in the `src/` directory.
+3. Run the verification scripts:
 
     ```bash
-    npm run build
+    node test/verify.js      # runs the real parsers against every dump, prints extracted items
+    node test/dump-all.js    # runs the full pipeline, writes .md/.html exports to /tmp/chatdump-out/
+    node test/ui-smoke.js    # smoke-tests the toast UI and filename generation
+    node test/e2e-dist.js    # decodes dist/chatdump.bookmarklet.js and executes it against the dumps
+    node test/meta-build.mjs # prints the per-module bundle size breakdown
     ```
 
-3. Open the generated `dist/chatdump.js` file and copy its entire content.
-4. Navigate to a conversation page on a supported platform (like ChatGPT).
-5. Open your browser's developer tools (F12 or Ctrl+Shift+I) and go to the **Console** tab.
-6. Paste the copied code into the console and press Enter.
+4. Rebuild with `npm run build` and re-run `test/e2e-dist.js` to validate the compiled bookmarklet.
 
-This will execute your modified script in the context of the page, allowing you to see any `console.error` messages or use `console.log` for debugging. After confirming your changes work, you can create a new bookmarklet from the minified `dist/chatdump.min.js` file for regular use.
+For in-browser debugging, decode the bookmarklet and paste it into the developer console of a conversation page:
+
+```bash
+node -e "console.log(decodeURI(require('fs').readFileSync('dist/chatdump.bookmarklet.js','utf8')).replace(/^javascript:void /,''))"
+```
+
+Any runtime failure is logged to the console with the `[ChatDump Error]` prefix and surfaced in an error toast.
 
 ## Contributing
 
@@ -96,18 +104,20 @@ const NewPlatformParser = {
             const promptNode = node.querySelector('.prompt-selector');
             const responseNode = node.querySelector('.response-selector');
 
+            // content must be a DOM node, NOT an HTML string: strings would need
+            // re-parsing through Trusted Types sinks blocked by the platforms' CSP
             if (promptNode) {
                 conversations.push(createConversationItem({
                     role: 'PROMPT',
                     num: i + 1,
-                    content: promptNode.innerHTML,
+                    content: promptNode,
                 }));
             }
             if (responseNode) {
                 conversations.push(createConversationItem({
                     role: 'RESPONSE',
                     num: i + 1,
-                    content: responseNode.innerHTML,
+                    content: responseNode,
                 }));
             }
         });
@@ -143,6 +153,29 @@ const parsers = [
 After these changes, run `npm run build` and test your new parser using the debugging workflow described above.
 
 ## Changelog
+
+### v1.3.0 (2026-06-10)
+
+**Trusted Types / CSP compatibility:**
+
+- **All Platforms** - The chat platforms enforce Trusted Types via CSP (`require-trusted-types-for 'script'`), which blocks every HTML-from-string injection sink with a "Sink type mismatch violation" error: `innerHTML` setters and `DOMParser.parseFromString` alike. The pipeline no longer re-parses HTML strings at all: parsers hand DOM nodes (from the in-memory body clone) to the processor, Turndown receives nodes directly, the HTML cleaner works on cloned nodes, and the toast UI is built with `createElement`. The end-to-end test simulates Trusted Types enforcement by making both sinks throw.
+
+**Parser Updates (verified against fresh HTML dumps of all three platforms):**
+
+- **ChatGPT Parser** - Rewritten around the current DOM: turns are now iterated via `section[data-turn="user|assistant"]` with separate per-role counters. Fixes wrong/duplicated turn numbering on non-alternating conversations and handles image-generation turns (which carry no `data-message-author-role` at all). Falls back to the legacy `div[data-message-author-role]` selector for older DOMs.
+- **Claude Parser** - Responses now extract only the `.standard-markdown` blocks, excluding extended-thinking and tool-use chrome (status buttons, duplicated thinking summaries that previously leaked into every exported response). Falls back to the whole response node when no markdown blocks are present.
+- **All Platforms** - Screen-reader-only labels (`.sr-only`, `.cdk-visually-hidden`) and buttons are now stripped centrally during processing. This removes Gemini's "Hai detto" / "Gemini ha detto" labels (the latter used to leak into Markdown as a spurious heading) from both Markdown and HTML outputs.
+
+**Build:**
+
+- Dropped `esbuild-plugin-bookmarklet`: version 1.1.0 has an upstream bug that writes the plain minified JS instead of the URI-encoded bookmarklet. The `javascript:void` prefixing and URI-encoding now live directly in `build.js`, together with a hard size guard (build fails above 62KB).
+- Replaced `slugify` (10.7KB), `toastify-js` (6.3KB) and `copy-to-clipboard` (3.3KB) with minimal in-tree implementations. The only runtime dependencies left are `turndown` and `turndown-plugin-gfm`.
+- License comments stripped from the bundle (`legalComments: 'none'`); attribution lives in this README.
+- Bundle size: ~25KB encoded (was ~55KB), well below the 62KB bookmarklet limit.
+
+**Testing:**
+
+- New `jsdom`-based verification harness in `test/`: parser-level checks, full-pipeline Markdown/HTML exports, UI smoke test, and an end-to-end test that decodes and executes the compiled bookmarklet against saved HTML dumps.
 
 ### v1.2.0 (2026-01-07)
 

@@ -1,10 +1,12 @@
-import toastify from 'toastify-js'
-import copy from 'copy-to-clipboard'
-import { escapeHTML } from './Utilities.js'
-
 const STYLE_ID = 'chatdump-toastify-styles'
 const TOAST_CSS =
-	'.chatdump-toast{padding:12px 20px;color:#fff;display:inline-block;box-shadow:0 3px 6px -1px rgba(0,0,0,.12),0 10px 36px -4px rgba(77,96,232,.3);background:-webkit-linear-gradient(315deg,#73a5ff,#5477f5);background:linear-gradient(135deg,#73a5ff,#5477f5);position:fixed;opacity:0;transition:all .4s cubic-bezier(.215,.61,.355,1);border-radius:2px;text-decoration:none;max-width:calc(50% - 20px);z-index:2147483647;font-family:monospace;font-size:14px;line-height:1.4}.chatdump-toast b{font-weight:bold;text-transform:uppercase;display:inline-block;margin-right:3px}.chatdump-toast a{color:#FFF;text-decoration:none;display:inline-block;margin-right:3px}.chatdump-toast a:hover{text-decoration:underline}.chatdump-toast a:last-child{margin-right:0}.chatdump-toast.on{opacity:1}.chatdump-toast .toast-close{background:transparent;border:0;color:#fff;cursor:pointer;font-family:inherit;font-size:1em;opacity:.4;padding:0 5px}.chatdump-toast.toastify-right{right:15px}.chatdump-toast.toastify-left{left:15px}.chatdump-toast.toastify-top{top:-150px}.chatdump-toast.toastify-bottom{bottom:-150px}.chatdump-toast.toastify-rounded{border-radius:25px}.chatdump-toast .toastify-avatar{width:1.5em;height:1.5em;margin:-7px 5px;border-radius:2px}.chatdump-toast.toastify-center{margin-left:auto;margin-right:auto;left:0;right:0;max-width:fit-content;max-width:-moz-fit-content}@media only screen and (max-width: 360px){.chatdump-toast.toastify-right,.chatdump-toast.toastify-left{margin-left:auto;margin-right:auto;left:0;right:0;max-width:fit-content}}'
+	'.chatdump-toast{position:fixed;top:16px;right:16px;z-index:2147483647;display:flex;align-items:center;flex-wrap:wrap;gap:8px;max-width:calc(100% - 32px);padding:10px 14px;color:#fff;border-radius:12px;box-shadow:0 10px 30px -5px rgba(0,0,0,.35);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.4;opacity:0;transform:translateY(-8px);transition:opacity .25s ease,transform .25s ease}' +
+	'.chatdump-toast.on{opacity:1;transform:translateY(0)}' +
+	'.chatdump-toast b{font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding-right:10px;border-right:1px solid rgba(255,255,255,.35)}' +
+	'.chatdump-toast a{color:#fff;text-decoration:none;background:rgba(255,255,255,.16);padding:5px 12px;border-radius:999px;white-space:nowrap;transition:background .15s ease}' +
+	'.chatdump-toast a:hover{background:rgba(255,255,255,.32)}' +
+	'.chatdump-toast .toast-close{background:transparent;border:0;color:#fff;cursor:pointer;font-family:inherit;font-size:14px;line-height:1;opacity:.5;padding:2px 4px}' +
+	'.chatdump-toast .toast-close:hover{opacity:1}'
 
 /**
  * Injects the necessary CSS for toast notifications into the document head.
@@ -20,21 +22,82 @@ export function initUI() {
 }
 
 /**
+ * Creates a DOM element with text content and attributes.
+ * Toast content is built with DOM APIs (never HTML strings): innerHTML and
+ * DOMParser are Trusted Types sinks blocked by CSP on the chat platforms.
+ * @param {string} tag - The tag name.
+ * @param {string} text - The text content.
+ * @param {Object<string, string>} [attrs] - Attributes to set.
+ * @returns {HTMLElement} The created element.
+ */
+function makeEl(tag, text, attrs) {
+	const el = document.createElement(tag)
+	el.textContent = text
+	for (const key in attrs || {}) {
+		el.setAttribute(key, attrs[key])
+	}
+	return el
+}
+
+/**
+ * Hides and removes a toast element.
+ * @param {HTMLElement} el - The toast element.
+ */
+function hideToast(el) {
+	el.classList.remove('on')
+	setTimeout(() => el.remove(), 400)
+}
+
+/**
+ * Shows a toast notification. Any previous toast is replaced.
+ * @param {Node[]} children - Content nodes of the toast.
+ * @param {string} background - CSS background for the toast.
+ * @param {number} duration - Auto-hide delay in ms; -1 keeps the toast until closed.
+ * @returns {HTMLElement} The toast element.
+ */
+function showToast(children, background, duration) {
+	document.querySelectorAll('.chatdump-toast').forEach((t) => t.remove())
+
+	const el = document.createElement('div')
+	el.className = 'chatdump-toast'
+	el.style.background = background
+	children.forEach((c) => el.appendChild(c))
+
+	const close = makeEl('button', '✖', { class: 'toast-close' })
+	close.addEventListener('click', () => hideToast(el))
+	el.appendChild(close)
+
+	document.body.appendChild(el)
+	requestAnimationFrame(() => el.classList.add('on'))
+	if (duration > 0) {
+		setTimeout(() => hideToast(el), duration)
+	}
+	return el
+}
+
+/**
+ * Copies text to the clipboard, with a legacy execCommand fallback.
+ * @param {string} text - The text to copy.
+ */
+function copyText(text) {
+	if (navigator.clipboard) {
+		navigator.clipboard.writeText(text)
+		return
+	}
+	const ta = document.createElement('textarea')
+	ta.value = text
+	document.body.appendChild(ta)
+	ta.select()
+	document.execCommand('copy')
+	ta.remove()
+}
+
+/**
  * Displays an error message toast.
  * @param {string} message - The error message to display.
  */
 export function showError(message) {
-	toastify({
-		backgroundColor: '#f82f3f',
-		className: 'chatdump-toast',
-		escapeMarkup: false,
-		text: `<b>chatdump</b> ${message}`,
-		duration: 3000,
-		stopOnFocus: true,
-		close: true,
-		gravity: 'top',
-		position: 'right',
-	}).showToast()
+	showToast([makeEl('b', 'chatdump'), makeEl('span', message)], 'linear-gradient(135deg,#ef4444,#b91c1c)', 3000)
 }
 
 /**
@@ -42,50 +105,29 @@ export function showError(message) {
  * @param {{mdText: string, htmlText: string, filename: string}} options
  */
 export function showExportOptions(options) {
-	const mdBlob = new Blob([options.mdText], { type: 'text/markdown' })
-	const htmlBlob = new Blob([options.htmlText], { type: 'text/html' })
-	const mdUrl = URL.createObjectURL(mdBlob)
-	const htmlUrl = URL.createObjectURL(htmlBlob)
+	const mdUrl = URL.createObjectURL(new Blob([options.mdText], { type: 'text/markdown' }))
+	const htmlUrl = URL.createObjectURL(new Blob([options.htmlText], { type: 'text/html' }))
 
-	const toastText = `
-			<b>chatdump</b>
-			<a href="${mdUrl}" download="${options.filename}.md">Save as MD</a>
-			<a href="${htmlUrl}" download="${options.filename}.html">Save as HTML</a>
-			<a href="#" data-text="${escapeHTML(options.mdText)}">Copy as MD</a>
-			<a href="#" data-text="${escapeHTML(options.htmlText)}">Copy as HTML</a>
-		`
+	const copyLink = (label, text) => {
+		const a = makeEl('a', label, { href: '#' })
+		a.addEventListener('click', (e) => {
+			e.preventDefault()
+			copyText(text)
+			hideToast(a.closest('.chatdump-toast'))
+			showToast([makeEl('b', 'chatdump'), makeEl('span', 'Copied to clipboard!')], 'linear-gradient(135deg,#22c55e,#15803d)', 2000)
+		})
+		return a
+	}
 
-	const toast = toastify({
-		backgroundColor: '#71979a',
-		className: 'chatdump-toast',
-		escapeMarkup: false,
-		text: toastText,
-		duration: -1, // Stays until closed
-		stopOnFocus: true,
-		close: true,
-		gravity: 'top',
-		position: 'right',
-	})
-	toast.showToast()
-
-	// Add listeners for copy buttons after a short delay for the element to render.
-	setTimeout(() => {
-		const toastEl = toast.toastElement
-		if (toastEl) {
-			toastEl.querySelectorAll('a[data-text]').forEach((a) => {
-				a.addEventListener('click', (e) => {
-					e.preventDefault()
-					copy(a.getAttribute('data-text'))
-					toast.hideToast()
-					toastify({
-						text: '<b>chatdump</b> Copied to clipboard!',
-						className: 'chatdump-toast',
-						backgroundColor: '#28a745',
-						escapeMarkup: false,
-						duration: 2000,
-					}).showToast()
-				})
-			})
-		}
-	}, 100)
+	showToast(
+		[
+			makeEl('b', 'chatdump'),
+			makeEl('a', 'Save as MD', { href: mdUrl, download: `${options.filename}.md` }),
+			makeEl('a', 'Save as HTML', { href: htmlUrl, download: `${options.filename}.html` }),
+			copyLink('Copy as MD', options.mdText),
+			copyLink('Copy as HTML', options.htmlText),
+		],
+		'linear-gradient(135deg,#0d9488,#155e75)',
+		-1,
+	)
 }

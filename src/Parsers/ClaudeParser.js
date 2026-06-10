@@ -14,24 +14,30 @@ const ClaudeParser = {
 		let responseNum = 0
 
 		body.querySelectorAll(selector).forEach((n) => {
-			const isUserMessage = n.hasAttribute('data-testid') && n.getAttribute('data-testid') === 'user-message'
-
-			if (isUserMessage) {
-				promptNum++
+			if (n.getAttribute('data-testid') === 'user-message') {
 				conversations.push(
 					createConversationItem({
 						role: 'PROMPT',
-						num: promptNum,
-						content: n.innerHTML,
+						num: ++promptNum,
+						content: n,
 					}),
 				)
 			} else {
-				responseNum++
+				// A response interleaves .standard-markdown blocks with thinking/tool-use
+				// panels (status buttons, sr-only labels). Keep only the markdown blocks
+				// (moved into a fresh container); fall back to the whole node when none
+				// are present (older DOM).
+				const blocks = n.querySelectorAll('.standard-markdown')
+				let content = n
+				if (blocks.length) {
+					content = n.ownerDocument.createElement('div')
+					blocks.forEach((b) => content.appendChild(b))
+				}
 				conversations.push(
 					createConversationItem({
 						role: 'RESPONSE',
-						num: responseNum,
-						content: n.innerHTML,
+						num: ++responseNum,
+						content,
 					}),
 				)
 			}

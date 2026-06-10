@@ -3,7 +3,7 @@ import '../types.js'
 /**
  * Factory function to create and validate a conversation item.
  * This ensures all items pushed by parsers have the correct shape.
- * @param {{role: string, num: number, content: string}} itemData - The raw item data.
+ * @param {{role: string, num: number, content: Element}} itemData - The raw item data.
  * @returns {ConversationItem} The validated conversation item.
  * @throws {Error} if validation fails.
  */
@@ -14,8 +14,8 @@ export function createConversationItem(itemData) {
 	if (typeof itemData.num !== 'number' || itemData.num < 1) {
 		throw new Error(`Invalid turn number: "${itemData.num}". Must be a positive integer.`)
 	}
-	if (typeof itemData.content !== 'string') {
-		throw new Error('Invalid content type. Content must be a string.')
+	if (!itemData.content || typeof itemData.content.querySelectorAll !== 'function') {
+		throw new Error('Invalid content type. Content must be a DOM element.')
 	}
 	return { role: itemData.role, num: itemData.num, content: itemData.content }
 }
@@ -27,11 +27,14 @@ export function createConversationItem(itemData) {
  */
 export function processConversations(conversations) {
 	return conversations.map((c) => {
-		const div = document.createElement('div')
-		div.innerHTML = c.content
+		// Content is a detached DOM node (cloned from the page body): mutate it in place
+		const div = c.content
 
-		// Remove Gemini's table UI elements (export to sheets button, copy table button)
-		div.querySelectorAll('.table-footer, [class*="export-sheets"], [class*="hide-from-message"]').forEach((el) => {
+		// Remove UI chrome shared across platforms: screen-reader labels ("Hai detto",
+		// "Gemini ha detto", thinking summaries), buttons, and Gemini's table UI elements
+		div.querySelectorAll(
+			'.sr-only, .cdk-visually-hidden, button, .table-footer, [class*="export-sheets"], [class*="hide-from-message"]',
+		).forEach((el) => {
 			el.remove()
 		})
 
@@ -87,24 +90,21 @@ export function processConversations(conversations) {
 				}
 
 				// Create clean code element with just the text and language class
-				const cleanCode = document.createElement('code')
+				const cleanCode = pre.ownerDocument.createElement('code')
 				if (lang) {
 					cleanCode.className = `language-${lang}`
 				}
 				cleanCode.textContent = codeText
 				// Replace entire pre content with clean code element
-				pre.innerHTML = ''
+				pre.textContent = ''
 				pre.appendChild(cleanCode)
 			}
 		})
 
 		// Ensure paragraphs have trailing newlines for markdown conversion
 		div.querySelectorAll('p').forEach((p) => {
-			p.innerHTML = p.innerHTML.trim() + '\n'
+			p.appendChild(p.ownerDocument.createTextNode('\n'))
 		})
-
-		// Inject into conversation item
-		c.content = div.innerHTML
 
 		return c
 	})

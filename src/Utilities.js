@@ -1,4 +1,18 @@
-import slugify from 'slugify'
+/**
+ * Slugifies a string for use in a filename: strips diacritics, lowercases,
+ * collapses non-alphanumerics to single dashes.
+ * @param {string} str - The string to slugify.
+ * @returns {string} The slugified string.
+ */
+function slugify(str) {
+	return str
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.slice(0, 80)
+}
 
 /**
  * Generates a standardized filename.
@@ -9,29 +23,7 @@ import slugify from 'slugify'
  */
 export function generateFilename(platform, title) {
 	const now = new Date()
-	const dateStr = now
-		.toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: '2-digit',
-			day: '2-digit',
-		})
-		.replace(/-/g, '')
-	const timeStr = now
-		.toLocaleTimeString('en-GB', {
-			hour: '2-digit',
-			minute: '2-digit',
-			hour12: false,
-		})
-		.replace(':', '')
-	const dateTime = `${dateStr}-${timeStr}`
+	const pad = (n) => String(n).padStart(2, '0')
+	const dateTime = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
 	return `${platform}-${dateTime}-${slugify(title) || 'conversation'}`
-}
-
-/**
- * Escapes a string for safe insertion into an HTML attribute.
- * @param {string} str - The string to escape.
- * @returns {string} The escaped string.
- */
-export function escapeHTML(str) {
-	return str.replace(/"/g, '&quot;')
 }

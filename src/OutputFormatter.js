@@ -31,15 +31,14 @@ export function formatAsMarkdown(conversations, title) {
 	const body = conversations.reduce((acc, c) => {
 		const header = _getConversationHeader(c.role, c.num)
 		// For prompts, use innerText to get a clean text representation.
-		// For responses, use Turndown to convert the cleaned HTML to Markdown.
+		// For responses, use Turndown to convert the content node to Markdown
+		// (Turndown accepts DOM nodes and clones them, so c.content is not mutated).
 		let content
 		if (c.role === 'RESPONSE') {
 			content = ts.turndown(c.content)
 		} else {
 			// Keep prompt text as it was entered
-			const div = document.createElement('div')
-			div.innerHTML = c.content
-			content = div.innerText
+			content = c.content.innerText || c.content.textContent
 		}
 		return `${acc}## ${header}\n\n${content}\n\n`
 	}, '')

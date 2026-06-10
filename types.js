@@ -9,7 +9,10 @@
  * @typedef {object} ConversationItem
  * @property {'PROMPT'|'RESPONSE'} role - The role of the speaker.
  * @property {number} num - The sequential number of the turn.
- * @property {string} content - The raw HTML content of the turn.
+ * @property {Element} content - A detached DOM element containing the turn content.
+ *           Content travels through the pipeline as DOM nodes (never as HTML strings)
+ *           because re-parsing strings requires Trusted Types sinks (innerHTML,
+ *           DOMParser.parseFromString) that are blocked by CSP on the chat platforms.
  */
 
 /**

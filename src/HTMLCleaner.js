@@ -38,21 +38,13 @@ function _removeComments(node) {
 }
 
 /**
- * Cleans and sanitizes an HTML node or string.
- * @param {string|Node} htmlInput - The HTML content to clean.
+ * Cleans and sanitizes a DOM node, returning the resulting HTML string.
+ * The input node is cloned, so the original is not mutated.
+ * @param {Element} input - The DOM element whose content must be cleaned.
  * @returns {string} The cleaned HTML string.
  */
-export function cleanHtml(htmlInput) {
-	let node
-	let returnInnerHTML = false
-
-	if (typeof htmlInput === 'string') {
-		node = document.createElement('div')
-		node.innerHTML = htmlInput
-		returnInnerHTML = true
-	} else {
-		node = htmlInput
-	}
+export function cleanHtml(input) {
+	const node = input.cloneNode(true)
 
 	_removeComments(node)
 
@@ -74,13 +66,17 @@ export function cleanHtml(htmlInput) {
 			element.removeAttribute(element.attributes[0].name)
 		}
 
-		// Convert non-essential tags to a div to preserve content
+		// Convert non-essential tags to a div to preserve content.
+		// Children are moved (not re-parsed via innerHTML): this avoids a Trusted
+		// Types sink and keeps descendants in the NodeList so they get processed too.
 		if (!ALLOWED_TAGS.includes(element.tagName.toLowerCase())) {
-			const div = document.createElement('div')
-			div.innerHTML = element.innerHTML
+			const div = element.ownerDocument.createElement('div')
+			while (element.firstChild) {
+				div.appendChild(element.firstChild)
+			}
 			element.parentNode?.replaceChild(div, element)
 		}
 	})
 
-	return returnInnerHTML ? node.innerHTML : node.outerHTML
+	return node.innerHTML
 }

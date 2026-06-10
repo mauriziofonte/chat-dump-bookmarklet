@@ -16,14 +16,14 @@ const GeminiParser = {
 				createConversationItem({
 					role: 'PROMPT',
 					num: i + 1,
-					content: query.innerHTML,
+					content: query,
 				}),
 			)
 			conversations.push(
 				createConversationItem({
 					role: 'RESPONSE',
 					num: i + 1,
-					content: response.innerHTML,
+					content: response,
 				}),
 			)
 		})
