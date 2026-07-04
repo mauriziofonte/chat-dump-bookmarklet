@@ -14,10 +14,79 @@ export function createConversationItem(itemData) {
 	if (typeof itemData.num !== 'number' || itemData.num < 1) {
 		throw new Error(`Invalid turn number: "${itemData.num}". Must be a positive integer.`)
 	}
-	if (!itemData.content || typeof itemData.content.querySelectorAll !== 'function') {
-		throw new Error('Invalid content type. Content must be a DOM element.')
+	const hasNode = itemData.content && typeof itemData.content.querySelectorAll === 'function'
+	const hasMarkdown = typeof itemData.markdown === 'string'
+	if (!hasNode && !hasMarkdown) {
+		throw new Error('Invalid content type. Content must be a DOM element or a markdown string.')
 	}
-	return { role: itemData.role, num: itemData.num, content: itemData.content }
+	const item = { role: itemData.role, num: itemData.num }
+	if (hasNode) {
+		item.content = itemData.content
+	}
+	if (hasMarkdown) {
+		item.markdown = itemData.markdown
+	}
+	if (itemData.richText) {
+		item.richText = true
+	}
+	if (Array.isArray(itemData.attachments) && itemData.attachments.length) {
+		item.attachments = itemData.attachments
+	}
+	return item
+}
+
+/**
+ * Demotes a heading level so turn content never collides with the export
+ * scaffolding (H1 = conversation title, H2 = turn headers): content headings
+ * start at level 3, relative hierarchy preserved.
+ * @param {number} level - The original heading level (1-6).
+ * @returns {number} The demoted level.
+ */
+function _demoteLevel(level) {
+	return Math.min(6, Math.max(level + 1, 3))
+}
+
+/**
+ * Demotes Markdown ATX headings in a markdown string, skipping fenced code
+ * blocks (attachment contents, artifact sources).
+ * @param {string} markdown - The Markdown source.
+ * @returns {string} The source with demoted headings.
+ */
+function _demoteMarkdownHeadings(markdown) {
+	let fence = null
+	return markdown
+		.split('\n')
+		.map((line) => {
+			const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/)
+			if (fenceMatch) {
+				if (!fence) {
+					fence = fenceMatch[1]
+				} else if (fenceMatch[1].charAt(0) === fence.charAt(0) && fenceMatch[1].length >= fence.length) {
+					fence = null
+				}
+				return line
+			}
+			if (fence) {
+				return line
+			}
+			return line.replace(/^(#{1,6})(\s)/, (m, hashes, space) => '#'.repeat(_demoteLevel(hashes.length)) + space)
+		})
+		.join('\n')
+}
+
+/**
+ * Demotes heading elements (h1-h6) of a detached DOM content node in place.
+ * @param {Element} div - The content container.
+ */
+function _demoteDomHeadings(div) {
+	div.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((heading) => {
+		const level = _demoteLevel(Number(heading.tagName.charAt(1)))
+		const replacement = heading.ownerDocument.createElement(`h${level}`)
+		while (heading.firstChild) {
+			replacement.appendChild(heading.firstChild)
+		}
+		heading.parentNode?.replaceChild(replacement, heading)
+	})
 }
 
 /**
@@ -27,6 +96,15 @@ export function createConversationItem(itemData) {
  */
 export function processConversations(conversations) {
 	return conversations.map((c) => {
+		// Markdown-based items (remote/API extraction) carry no DOM node to clean
+		if (!c.content) {
+			if (typeof c.markdown === 'string') {
+				c.markdown = _demoteMarkdownHeadings(c.markdown)
+			}
+			return c
+		}
+		_demoteDomHeadings(c.content)
+
 		// Content is a detached DOM node (cloned from the page body): mutate it in place
 		const div = c.content
 

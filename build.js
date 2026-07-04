@@ -13,7 +13,9 @@ const result = await esbuild.build({
 	minify: true,
 	outfile: 'dist/chatdump.bookmarklet.js',
 	sourcemap: false,
-	target: ['chrome58', 'firefox57', 'safari11', 'edge16'],
+	// The chat platforms themselves require evergreen browsers: no point
+	// transpiling below what claude.ai/chatgpt.com/gemini already demand.
+	target: ['chrome90', 'firefox88', 'safari14', 'edge90'],
 	write: false,
 })
 

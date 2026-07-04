@@ -11,10 +11,11 @@ for (const file of readdirSync('.').filter(f => /^(chatgpt|gemini|claude)-\d+\.h
   Object.defineProperty(dom.window.HTMLElement.prototype, 'innerText', { get() { return this.textContent }, configurable: true })
   const { getPlatformParser } = await import('../src/ParserFactory.js?' + file)
   const { processConversations } = await import('../src/ConversationProcessor.js?' + file)
-  const { formatAsMarkdown, formatAsHtml } = await import('../src/OutputFormatter.js?' + file)
+  const { formatAsMarkdown, formatAsHtml, formatAsTxt } = await import('../src/OutputFormatter.js?' + file)
   const items = processConversations(getPlatformParser().parse(dom.window.document.body))
   const base = '/tmp/chatdump-out/' + file.replace('.html', '')
   writeFileSync(base + '.md', formatAsMarkdown(items, 'TEST: ' + file))
   writeFileSync(base + '.out.html', formatAsHtml(items, 'TEST: ' + file))
+  writeFileSync(base + '.txt', formatAsTxt(items, 'TEST: ' + file))
   console.log(`${file}: ${items.length} items -> ${base}.md`)
 }
