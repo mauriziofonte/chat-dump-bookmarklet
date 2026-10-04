@@ -26,6 +26,7 @@ Every format shares the same scaffolding:
 
 - **H1** — the conversation title.
 - **Provenance line** — localized, right under the title: tool link, creation date in your browser locale, and the URL of the original conversation.
+- **Escaping** – titles, attachment names, headers and link targets inserted into the HTML export are HTML-escaped; links are limited to `http(s)` URLs, and Markdown/TXT titles and attachment names are kept on one line.
 - **H2** — one per turn: `Human Prompt {n}` / `LLM Response {n}` (localized).
 - **Turn content** — headings authored by the LLM are demoted to start at H3 (relative hierarchy preserved, fenced code untouched), so they never collide with the turn scaffolding.
 - **Markers** — one-liners for non-text events: `> [Attachments: ...]`, `> [Artifact: title]` (followed by its source when available), `> [Tool: ...]`.
@@ -60,6 +61,8 @@ The build bundles and minifies with `esbuild` (evergreen-browser targets: the ch
 Everything runs offline against fixtures — no live account needed.
 
 **DOM fixtures.** Open a conversation, save the full page as HTML in the project root named `<platform>-<n>.html` (e.g. `claude-1.html`). These files are gitignored.
+
+**Regression tests** (`npm test`, Node's built-in runner plus `jsdom`; no live account needed) cover the HTML-export escaping (`test/html-security.test.mjs`).
 
 **Test harness** (`jsdom`-based, plain Node scripts):
 
