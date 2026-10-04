@@ -25,6 +25,13 @@ const MESSAGES = {
 		attachment: 'Attachment',
 		artifact: 'Artifact',
 		tool: 'Tool',
+		// Completeness notices (English fallback in other locales)
+		notice_dom: 'INCOMPLETE EXPORT RISK: copied from the visible page, not the conversation API, because the page holds only part of long conversations. Messages may be missing and branches are unverified.{reason}',
+		notice_dom_reason: ' API retrieval failed: {reason}',
+		notice_api_ok: 'Retrieved from the conversation API ({pages} page(s), {messages} message(s)); the start of the conversation was reached.',
+		notice_api_warn: 'POSSIBLY INCOMPLETE: retrieved from the conversation API ({pages} page(s), {messages} message(s)), but problems were found:',
+		notice_label: 'Export notice',
+		toast_incomplete: 'Possibly incomplete export; see the notice in the file.',
 	},
 	zh: {
 		save_txt: '保存为 TXT',
@@ -237,9 +244,11 @@ function _locale() {
  */
 export function t(key, params) {
 	const table = MESSAGES[_locale()]
-	let text = table[key] || MESSAGES.en[key] || key
+	// The build stores spaces in the tables as '~' (1 byte instead of the 3-byte %20
+	// a bookmarklet URL needs); tables used unbuilt simply contain none
+	let text = (table[key] || MESSAGES.en[key] || key).replace(/~/g, ' ')
 	for (const name in params || {}) {
-		text = text.replace(`{${name}}`, String(params[name]))
+		text = text.replace(`{${name}}`, () => String(params[name]))
 	}
 	return text
 }

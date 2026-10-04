@@ -13,12 +13,29 @@ ChatDump therefore extracts the conversation from each platform's own **same-ori
 | Platform | Primary extraction | What you get |
 | --- | --- | --- |
 | **Claude** | `/api/organizations/{org}/chat_conversations/{uuid}` (org UUID from the `lastActiveOrg` cookie, `/api/organizations` fallback) | Every turn, prompt attachments **with their extracted text content**, artifact sources as fenced code blocks, tool-use markers |
-| **ChatGPT** | `/backend-api/conversation/{uuid}` (bearer token from `/api/auth/session`) | The active branch linearized from `current_node` (abandoned edit-branches excluded), assistant tool/code chains merged into one response, attachments from message metadata |
+| **ChatGPT** | `/backend-api/conversations/{uuid}?include_has_versions=true&num_turns=100`, following `page_info.start_cursor` backwards (`&before=<cursor>`); legacy `/backend-api/conversation/{uuid}` as fallback (bearer token from `/api/auth/session`) | Every page, deduplicated and in order; the active branch (checked against `current_node`); assistant tool/code chains merged into one response; attachments; citations as links; models and timestamps |
 | **Gemini** | `batchexecute` RPC `hNvQHb` (auth token from `WIZ_global_data`) | All turns via cursor pagination, the regenerated draft actually continued (parent-pointer match), attachment file names |
 
-Model *thinking* / hidden system messages are excluded on all platforms by design: the export is the conversation, not the model's chrome.
+Model *thinking* / hidden system messages are excluded on all platforms by design: the export is the conversation, not the model's chrome. Reasoning filtering is unchanged: short assistant preambles such as "I'll check…" that ChatGPT records as visible messages are exported with the response.
 
 The **DOM fallback** still works on every platform (and is what the offline test harness exercises): it clones `document.body`, extracts turns with platform-specific selectors, strips UI chrome (buttons, screen-reader labels, copy-code decorations), and preserves attachments and artifact/tool chips as inline markers.
+
+### Completeness is explicit
+
+Every export carries an **Export notice** (Markdown, HTML and TXT) and the toast turns amber when it applies:
+
+- **DOM fallback** is always labelled as possibly incomplete, with the reason the API retrieval failed. It is never presented as a verified export.
+- **ChatGPT API retrieval** states how many pages and messages were read and that the start of the conversation was reached, or lists what went wrong: no `page_info`, a repeated or missing cursor, the 1000-page / 200000-message safety limits, duplicate ids with differing content, `current_node` missing or not last (trailing messages from another branch are left out and counted), sibling versions sharing a parent, cycles, or a missing parent in a tree payload. An unresolvable `current_node` in a tree payload aborts the API path (DOM fallback, labelled) instead of guessing a branch.
+- Requests are bounded: 15 s per request and 90 s overall, both cancelled with `AbortController`.
+
+The **DOM fallback** still works on every platform (and is what the offline test harness exercises): it clones `document.body`, extracts turns with platform-specific selectors, strips UI chrome (buttons, screen-reader labels, copy-code decorations), and preserves attachments and artifact/tool chips as inline markers.
+
+### ChatGPT retrieval limitations
+
+- The endpoint, its `before=<start_cursor>` parameter and the payload shapes are undocumented and were taken from the community write-up ([discussion 204601](https://github.com/orgs/community/discussions/204601#discussioncomment-18431658)); they can change at any time, and the parameter name has not been confirmed against a live account.
+- In the paginated message-list format, `metadata.parent_id` often points at structural nodes that are not messages, so a parent that is not among the messages is not treated as an error. Cycles and sibling versions sharing a parent are reported; how `include_has_versions` marks alternate versions is not modeled, so a version selection that the server resolved silently cannot be verified.
+- Reasoning/preamble filtering is unchanged: records on an `analysis` channel or with an internal recipient are not filtered.
+- Claude and Gemini retrieval is unchanged: no pagination, completeness check or independent active-branch traversal.
 
 ## Export anatomy
 
@@ -26,6 +43,8 @@ Every format shares the same scaffolding:
 
 - **H1** — the conversation title.
 - **Provenance line** — localized, right under the title: tool link, creation date in your browser locale, and the URL of the original conversation.
+- **Escaping** – titles, attachment names, headers and link targets inserted into the HTML export are HTML-escaped; links are limited to `http(s)` URLs, and Markdown/TXT titles and attachment names are kept on one line.
+- **Export notice** – see above.
 - **H2** — one per turn: `Human Prompt {n}` / `LLM Response {n}` (localized).
 - **Turn content** — headings authored by the LLM are demoted to start at H3 (relative hierarchy preserved, fenced code untouched), so they never collide with the turn scaffolding.
 - **Markers** — one-liners for non-text events: `> [Attachments: ...]`, `> [Artifact: title]` (followed by its source when available), `> [Tool: ...]`.
@@ -34,15 +53,19 @@ The TXT export carries the same content with plain-text separators instead of Ma
 
 ## Localization
 
-UI strings and export labels are localized in the 10 most spoken languages — English, Mandarin Chinese, Hindi, Spanish, French, Arabic, Bengali, Portuguese, Russian, Urdu — plus Italian, selected automatically from `navigator.language` (English fallback, RTL layout for Arabic and Urdu).
+UI strings and export labels are localized in the 10 most spoken languages — English, Mandarin Chinese, Hindi, Spanish, French, Arabic, Bengali, Portuguese, Russian, Urdu — plus Italian, selected automatically from `navigator.language` (English fallback, RTL layout for Arabic and Urdu). The export-notice strings are English only and fall back to English in every locale.
 
 ## Installation
 
 Copy the contents of [`dist/chatdump.bookmarklet.js`](./dist/chatdump.bookmarklet.js) into the URL field of a new browser bookmark. Alternatively, visit the [ChatDump web page](https://www.mauriziofonte.it/blog/post/chatdump-bookmarklet.html) and drag the bookmarklet link to your bookmarks toolbar.
 
-Then open a conversation on a supported platform and click the bookmark. The toast appears immediately in a loading state while the conversation is fetched (a 10-second deadline guards against slow APIs; on timeout or any API error the DOM fallback takes over transparently), then shows the export buttons.
+Then open a conversation on a supported platform and click the bookmark. The toast appears immediately in a loading state while the conversation is fetched (requests are cancelled after 15 s each / 90 s overall; on timeout or any API error the DOM fallback takes over), then shows the export buttons.
 
-> **Heads up!** As with any bookmarklet, review the source before installing it. `npm run build` reproduces `dist/` byte-for-byte from `src/`.
+The bookmarklet only runs on `https://` pages of exactly `chatgpt.com`, `www.chatgpt.com`, `chat.openai.com`, `claude.ai`, `www.claude.ai` and `gemini.google.com`.
+
+> **Heads up!** As with any bookmarklet, review the source before installing it. `npm run verify` rebuilds from `src/` and fails unless `dist/` matches byte for byte.
+
+> **Embedding the bookmarklet in HTML.** Spaces, `%`, `#`, `<`, `>` and control characters are percent-encoded; quotes, backslashes, braces and brackets stay raw (escaping them as `encodeURI` does would add ~14KB). Spaces must be encoded because Safari silently drops raw spaces from a pasted `javascript:` URL, which breaks the code with `SyntaxError: Unexpected token '{'`. Pasting into the bookmark URL field works as is; to embed the file in an `href`, escape `"` as `&quot;` first.
 
 ## Building from source
 
@@ -50,16 +73,20 @@ Then open a conversation on a supported platform and click the bookmark. The toa
 git clone https://github.com/mauriziofonte/chat-dump-bookmarklet.git
 cd chat-dump-bookmarklet
 npm install
-npm run build
+npm run build   # writes dist/chatdump.bookmarklet.js and prints its SHA-256
+npm run verify  # rebuilds in memory and fails if dist/ differs
+npm test
 ```
 
-The build bundles and minifies with `esbuild` (evergreen-browser targets: the chat platforms themselves require nothing less), prefixes `javascript:void`, URI-encodes, and writes `dist/chatdump.bookmarklet.js`. It **fails hard** if the encoded output exceeds the 62KB bookmarklet URL limit; current size is ~60KB, most of it the i18n tables once percent-encoded.
+The build bundles and minifies with `esbuild` (evergreen-browser targets: the chat platforms themselves require nothing less), prefixes `javascript:void`, encodes (see `encode.js`), and writes `dist/chatdump.bookmarklet.js`. It **fails hard** if the encoded output exceeds the 62KB bookmarklet URL limit; current size is ~51KB, most of it the i18n tables. To save space, the build stores spaces in the message tables as `~` and `t()` restores them (a space costs 3 bytes once encoded, `~` one).
 
 ## Development and testing
 
 Everything runs offline against fixtures — no live account needed.
 
 **DOM fixtures.** Open a conversation, save the full page as HTML in the project root named `<platform>-<n>.html` (e.g. `claude-1.html`). These files are gitignored.
+
+**Regression tests** (`npm test`, Node's built-in runner plus `jsdom`; no live account needed) cover the HTML-export escaping, hardening (hosts, redirects, timeouts, Blob URLs) and ChatGPT retrieval: pagination, duplicates, cursors, branches and the completeness notice (`test/*.test.mjs`). `test/fixtures/chatgpt-paged-synthetic.json` is a synthetic paginated ChatGPT payload (invented content, `example.*` domains) mirroring the record shapes of real payloads.
 
 **Test harness** (`jsdom`-based, plain Node scripts):
 
@@ -79,7 +106,7 @@ node test/meta-build.mjs    # per-module bundle size breakdown
 For in-browser debugging, decode the bundle and paste it into the DevTools console of a conversation page:
 
 ```bash
-node -e "console.log(decodeURI(require('fs').readFileSync('dist/chatdump.bookmarklet.js','utf8')).replace(/^javascript:void /,''))"
+node -e "console.log(decodeURIComponent(require('fs').readFileSync('dist/chatdump.bookmarklet.js','utf8').slice('javascript:'.length)).replace(/^void /,''))"
 ```
 
 Runtime failures are logged with the `[ChatDump Error]` prefix and surfaced in an error toast; remote-extraction fallbacks log a `[ChatDump]` warning.
@@ -91,21 +118,23 @@ When reverse-engineering a platform API, capture a HAR of the conversation page 
 ```text
 index.js                     entry point: calls run()
 src/ChatDump.js              orchestrator: platform detection, remote-first extraction
-                             with 10s deadline, DOM fallback, formatting, toast
-src/ParserFactory.js         hostname -> parser resolution
+                             with AbortController deadlines, DOM fallback, formatting, toast
+src/ParserFactory.js         exact HTTPS hostname -> parser resolution
 src/Parsers/*.js             per-platform ParserModule: parseRemote() (API) + parse() (DOM)
-src/RemoteUtils.js           shared helpers for API extractors (apiGet, marker, fence)
+src/ChatGPTApi.js            paginated retrieval, dedupe, active-branch resolution, warnings
+src/RemoteUtils.js           apiFetch/apiGet (same-origin, no redirects, abortable), marker, fence
 src/ConversationProcessor.js item validation, UI-chrome cleanup, heading demotion
 src/OutputFormatter.js       Markdown / HTML / TXT documents (scaffolding, preamble)
 src/MarkdownRenderer.js      compact MD->HTML renderer for API-sourced turns
 src/HTMLCleaner.js           tag/attribute sanitizer for DOM-sourced HTML export
 src/I18n.js                  locale tables (10 languages + Italian) and t()
 src/UIManager.js             toast UI (loading / export / copied / error states)
+bundle.js, build.js, encode.js  reproducible build, --check mode, bookmarklet encoding
 src/Utilities.js             filename slug/timestamp
 types.js                     JSDoc typedefs (ConversationItem, ParserModule)
 ```
 
-A turn travels the pipeline as a `ConversationItem`, carrying either a **detached DOM node** (`content`, from DOM parsing) or a **Markdown string** (`markdown`, from API extraction), plus optional `attachments`. Formatters handle both transparently.
+An export also carries an `ExportInfo` (source, completeness, warnings) that the formatters render as the notice. A turn travels the pipeline as a `ConversationItem`, carrying either a **detached DOM node** (`content`, from DOM parsing) or a **Markdown string** (`markdown`, from API extraction), plus optional `attachments`. Formatters handle both transparently.
 
 ## Adding a new platform
 

@@ -2,29 +2,9 @@ import '../../types.js'
 import { createConversationItem } from '../ConversationProcessor.js'
 import { t } from '../I18n.js'
 import { apiGet, marker, fence } from '../RemoteUtils.js'
+import { fetchConversation } from '../ChatGPTApi.js'
 
 const CONVERSATION_PATH = /\/c\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
-
-/**
- * Linearizes the conversation tree returned by the backend API: walks from
- * current_node up through the parents (the active branch), then reverses.
- * @param {object} data - The /backend-api/conversation/{id} payload.
- * @returns {object[]} The messages of the active branch, in chat order.
- */
-function _activeBranch(data) {
-	const chain = []
-	let nodeId = data.current_node
-	let guard = 0
-	while (nodeId && guard++ < 10000) {
-		const node = data.mapping && data.mapping[nodeId]
-		if (!node) break
-		if (node.message) {
-			chain.push(node.message)
-		}
-		nodeId = node.parent
-	}
-	return chain.reverse()
-}
 
 /**
  * Converts a single message's content to Markdown. Returns an empty string
@@ -71,18 +51,21 @@ function _messageAttachments(message) {
 /** @type {ParserModule} */
 const ChatGPTParser = {
 	name: 'chatgpt',
-	matches: (hostname) => hostname.includes('chat.openai.com') || hostname.includes('chatgpt.com'),
+	hosts: ['chatgpt.com', 'www.chatgpt.com', 'chat.openai.com'],
+	matches: (hostname) => ChatGPTParser.hosts.includes(hostname),
 
 	/**
 	 * API-based extraction. chatgpt.com virtualizes the message list (infinite
 	 * scroll unloads off-screen turns), so a complete export needs the backend
 	 * API: the session access token comes from /api/auth/session (same-origin,
 	 * cookie-authenticated), the conversation tree from
-	 * /backend-api/conversation/{uuid}. Returns null when the token or the
-	 * conversation is unavailable, letting ChatDump fall back to DOM parsing.
+	 * /backend-api/conversations/{uuid} (paginated, see ChatGPTApi.js). Returns
+	 * null when the token or the conversation is unavailable, letting ChatDump
+	 * fall back to (clearly labelled, possibly incomplete) DOM parsing.
 	 * @returns {Promise<RemoteConversation|null>}
 	 */
-	parseRemote: async () => {
+	parseRemote: async (context) => {
+		const signal = context && context.signal
 		if (typeof fetch !== 'function') {
 			return null
 		}
@@ -90,12 +73,12 @@ const ChatGPTParser = {
 		if (!pathMatch) {
 			return null
 		}
-		const session = await apiGet('/api/auth/session')
+		const session = await apiGet('/api/auth/session', undefined, { signal })
 		if (!session || !session.accessToken) {
 			return null
 		}
-		const data = await apiGet(`/backend-api/conversation/${pathMatch[1]}`, { authorization: `Bearer ${session.accessToken}` })
-		if (!data || !data.mapping || !data.current_node) {
+		const data = await fetchConversation(pathMatch[1], { authorization: `Bearer ${session.accessToken}` }, signal)
+		if (!data.messages.length) {
 			return null
 		}
 
@@ -112,7 +95,7 @@ const ChatGPTParser = {
 			}
 		}
 
-		for (const message of _activeBranch(data)) {
+		for (const message of data.messages) {
 			const role = message.author && message.author.role
 			if (message.metadata && message.metadata.is_visually_hidden_from_conversation) {
 				continue
@@ -137,7 +120,7 @@ const ChatGPTParser = {
 		if (!items.length) {
 			return null
 		}
-		return { title: data.title || document.title, items }
+		return { title: data.title || document.title, items, source: 'api', complete: data.complete, warnings: data.warnings, stats: data.stats, endpoint: data.endpoint }
 	},
 
 	parse: (body) => {

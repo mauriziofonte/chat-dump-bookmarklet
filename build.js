@@ -1,30 +1,29 @@
 #!/usr/bin/env node
-import * as esbuild from 'esbuild'
-import { writeFileSync } from 'node:fs'
+/**
+ * Builds dist/chatdump.bookmarklet.js. With --check, nothing is written: the
+ * committed file must equal a fresh build (exit 1 otherwise). Both modes
+ * print the SHA-256 of the bookmarklet.
+ */
+import { readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { bundle, MAX_BYTES } from './bundle.js'
 
-// Browser bookmarklet hard limit (URL length): keep the encoded build below this.
-const MAX_BYTES = 62 * 1024
+const OUT = 'dist/chatdump.bookmarklet.js'
+const check = process.argv.includes('--check')
 
-const result = await esbuild.build({
-	bundle: true,
-	entryPoints: ['index.js'],
-	format: 'iife',
-	legalComments: 'none',
-	minify: true,
-	outfile: 'dist/chatdump.bookmarklet.js',
-	sourcemap: false,
-	// The chat platforms themselves require evergreen browsers: no point
-	// transpiling below what claude.ai/chatgpt.com/gemini already demand.
-	target: ['chrome90', 'firefox88', 'safari14', 'edge90'],
-	write: false,
-})
-
-const js = result.outputFiles.find((f) => f.path.endsWith('.js'))
-const bookmarklet = encodeURI('javascript:void ' + js.text)
-writeFileSync(js.path, bookmarklet)
-
+const { bookmarklet, rawBytes } = await bundle()
 const size = Buffer.byteLength(bookmarklet)
-console.log(`Bookmarklet: ${size} bytes (raw JS: ${Buffer.byteLength(js.text)} bytes, limit: ${MAX_BYTES})`)
+const sha = createHash('sha256').update(bookmarklet).digest('hex')
+
+if (check) {
+	const committed = readFileSync(OUT, 'utf8')
+	const same = committed === bookmarklet
+	console.log(`${same ? 'OK' : 'MISMATCH'}: ${OUT} ${same ? 'reproduces from source' : 'differs from a fresh build'} (sha256 ${sha})`)
+	process.exit(same ? 0 : 1)
+}
+
+writeFileSync(OUT, bookmarklet)
+console.log(`Bookmarklet: ${size} bytes (raw JS: ${rawBytes} bytes, limit: ${MAX_BYTES}), sha256 ${sha}`)
 if (size > MAX_BYTES) {
 	console.error(`ERROR: bookmarklet exceeds the ${MAX_BYTES}-byte limit`)
 	process.exit(1)

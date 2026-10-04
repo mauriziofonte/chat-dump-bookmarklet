@@ -9,6 +9,7 @@ const TOAST_CSS =
 	'.chatdump-toast .toast-dot{width:8px;height:8px;border-radius:50%;background:var(--cd-accent,#818cf8);box-shadow:0 0 8px var(--cd-accent,#818cf8)}' +
 	'.chatdump-toast a{color:#e4e4e7;text-decoration:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.07);padding:5px 11px;border-radius:9px;white-space:nowrap;font-weight:500;transition:background .15s ease,color .15s ease,transform .15s ease}' +
 	'.chatdump-toast a:hover{background:rgba(255,255,255,.13);color:#fff;transform:translateY(-1px)}' +
+	'.chatdump-toast .toast-warning{flex-basis:100%;color:#fde68a}' +
 	'.chatdump-toast .toast-close{background:transparent;border:0;color:#fafafa;cursor:pointer;font-family:inherit;font-size:13px;line-height:1;opacity:.45;padding:4px 5px;border-radius:7px;transition:opacity .15s ease}' +
 	'.chatdump-toast .toast-close:hover{opacity:1}' +
 	'.chatdump-toast .toast-spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.18);border-top-color:#fafafa;border-radius:50%;animation:chatdump-spin .7s linear infinite}' +
@@ -17,6 +18,7 @@ const TOAST_CSS =
 const ACCENTS = {
 	info: '#818cf8',
 	success: '#34d399',
+	warn: '#fbbf24',
 	error: '#f87171',
 }
 
@@ -64,11 +66,32 @@ function makeBrand(accent) {
 	return brand
 }
 
+// Grace period before revoking Blob URLs, so a download the user just
+// started can finish reading its Blob.
+const REVOKE_DELAY_MS = 30000
+
+// The toast on screen and the Blob URLs behind its download links.
+let current = { el: null, urls: [] }
+
 /**
- * Hides and removes a toast element.
+ * Revokes the Blob URLs of a toast after the grace period.
+ * @param {string[]} urls - The object URLs.
+ */
+function revokeLater(urls) {
+	if (urls.length) {
+		setTimeout(() => urls.forEach((u) => URL.revokeObjectURL(u)), REVOKE_DELAY_MS)
+	}
+}
+
+/**
+ * Hides and removes a toast element, releasing its Blob URLs.
  * @param {HTMLElement} el - The toast element.
  */
 function hideToast(el) {
+	if (current.el === el) {
+		revokeLater(current.urls)
+		current = { el: null, urls: [] }
+	}
 	el.classList.remove('on')
 	setTimeout(() => el.remove(), 400)
 }
@@ -78,9 +101,11 @@ function hideToast(el) {
  * @param {Node[]} children - Content nodes of the toast.
  * @param {string} accent - Accent color for the brand dot.
  * @param {number} duration - Auto-hide delay in ms; -1 keeps the toast until closed.
+ * @param {string[]} [urls] - Blob URLs owned by the toast; revoked when it is replaced or dismissed.
  * @returns {HTMLElement} The toast element.
  */
-function showToast(children, accent, duration) {
+function showToast(children, accent, duration, urls) {
+	revokeLater(current.urls)
 	document.querySelectorAll('.chatdump-toast').forEach((t) => t.remove())
 
 	const el = document.createElement('div')
@@ -93,6 +118,7 @@ function showToast(children, accent, duration) {
 	close.addEventListener('click', () => hideToast(el))
 	el.appendChild(close)
 
+	current = { el, urls: urls || [] }
 	document.body.appendChild(el)
 	requestAnimationFrame(() => el.classList.add('on'))
 	if (duration > 0) {
@@ -137,7 +163,7 @@ export function showLoading() {
 
 /**
  * Displays the main export options toast with download and copy links.
- * @param {{mdText: string, htmlText: string, txtText: string, filename: string}} options
+ * @param {{mdText: string, htmlText: string, txtText: string, filename: string, warning?: string}} options
  */
 export function showExportOptions(options) {
 	const mdUrl = URL.createObjectURL(new Blob([options.mdText], { type: 'text/markdown' }))
@@ -157,6 +183,7 @@ export function showExportOptions(options) {
 
 	showToast(
 		[
+			...(options.warning ? [makeEl('span', options.warning, { class: 'toast-warning' })] : []),
 			makeEl('a', t('save_md'), { href: mdUrl, download: `${options.filename}.md` }),
 			makeEl('a', t('save_html'), { href: htmlUrl, download: `${options.filename}.html` }),
 			makeEl('a', t('save_txt'), { href: txtUrl, download: `${options.filename}.txt` }),
@@ -164,7 +191,8 @@ export function showExportOptions(options) {
 			copyLink(t('copy_html'), options.htmlText),
 			copyLink(t('copy_txt'), options.txtText),
 		],
-		ACCENTS.info,
+		options.warning ? ACCENTS.warn : ACCENTS.info,
 		-1,
+		[mdUrl, htmlUrl, txtUrl],
 	)
 }
