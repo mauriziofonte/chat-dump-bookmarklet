@@ -8,14 +8,7 @@
  * the live page, so no Trusted Types sink is involved.
  */
 
-/**
- * Escapes HTML special characters.
- * @param {string} text - Raw text.
- * @returns {string} Escaped text.
- */
-function _esc(text) {
-	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escapeHtml } from './Html.js'
 
 /**
  * Renders inline Markdown marks (code, bold, italic, strikethrough, links).
@@ -23,7 +16,7 @@ function _esc(text) {
  * @returns {string} HTML for the line.
  */
 function _inline(text) {
-	let html = _esc(text)
+	let html = escapeHtml(text)
 	html = html.replace(/`([^`]+)`/g, (m, code) => `<code>${code}</code>`)
 	html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
 	html = html.replace(/(^|[^*\w])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
@@ -98,7 +91,7 @@ export function renderMarkdown(markdown) {
 				i++
 			}
 			const cls = lang ? ` class="language-${lang}"` : ''
-			out.push(`<pre><code${cls}>${_esc(code.join('\n'))}</code></pre>`)
+			out.push(`<pre><code${cls}>${escapeHtml(code.join('\n'))}</code></pre>`)
 			continue
 		}
 

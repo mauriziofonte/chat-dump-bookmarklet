@@ -11,7 +11,12 @@ const parsers = [ChatGPTParser, GeminiParser, ClaudeParser]
  * @returns {ParserModule|null} The matching parser module or null if none match.
  */
 export function getPlatformParser() {
-	const hostname = window.location.hostname
+	// Exact hostnames over HTTPS only: substring matching accepted look-alike
+	// hosts such as chatgpt.com.attacker.invalid
+	if (window.location.protocol !== 'https:') {
+		return null
+	}
+	const hostname = window.location.hostname.toLowerCase()
 	return parsers.find((parser) => parser.matches(hostname)) || null
 }
 

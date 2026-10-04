@@ -9,15 +9,15 @@ import '../types.js'
  */
 export function createConversationItem(itemData) {
 	if (!itemData.role || (itemData.role !== 'PROMPT' && itemData.role !== 'RESPONSE')) {
-		throw new Error(`Invalid role: "${itemData.role}". Must be "PROMPT" or "RESPONSE".`)
+		throw new Error(`Invalid role "${itemData.role}" (PROMPT or RESPONSE)`)
 	}
 	if (typeof itemData.num !== 'number' || itemData.num < 1) {
-		throw new Error(`Invalid turn number: "${itemData.num}". Must be a positive integer.`)
+		throw new Error(`Invalid turn number "${itemData.num}"`)
 	}
 	const hasNode = itemData.content && typeof itemData.content.querySelectorAll === 'function'
 	const hasMarkdown = typeof itemData.markdown === 'string'
 	if (!hasNode && !hasMarkdown) {
-		throw new Error('Invalid content type. Content must be a DOM element or a markdown string.')
+		throw new Error('Content must be a DOM element or markdown')
 	}
 	const item = { role: itemData.role, num: itemData.num }
 	if (hasNode) {
