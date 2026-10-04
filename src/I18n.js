@@ -237,7 +237,9 @@ function _locale() {
  */
 export function t(key, params) {
 	const table = MESSAGES[_locale()]
-	let text = table[key] || MESSAGES.en[key] || key
+	// The build stores spaces in the tables as '~' (1 byte instead of the 3-byte %20
+	// a bookmarklet URL needs); tables used unbuilt simply contain none
+	let text = (table[key] || MESSAGES.en[key] || key).replace(/~/g, ' ')
 	for (const name in params || {}) {
 		text = text.replace(`{${name}}`, String(params[name]))
 	}

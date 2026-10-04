@@ -156,7 +156,8 @@ function _domResponseContent(node) {
 /** @type {ParserModule} */
 const ClaudeParser = {
 	name: 'claude',
-	matches: (hostname) => hostname.includes('claude.ai'),
+	hosts: ['claude.ai', 'www.claude.ai'],
+	matches: (hostname) => ClaudeParser.hosts.includes(hostname),
 
 	/**
 	 * API-based extraction. claude.ai virtualizes the message list (only the
@@ -166,7 +167,8 @@ const ClaudeParser = {
 	 * pages, endpoint changes), letting ChatDump fall back to DOM parsing.
 	 * @returns {Promise<RemoteConversation|null>}
 	 */
-	parseRemote: async () => {
+	parseRemote: async (context) => {
+		const signal = context && context.signal
 		if (typeof fetch !== 'function') {
 			return null
 		}
@@ -182,7 +184,7 @@ const ClaudeParser = {
 			orgIds.push(cookieOrg)
 		}
 		try {
-			const orgs = await apiGet('/api/organizations')
+			const orgs = await apiGet('/api/organizations', undefined, { signal })
 			for (const org of Array.isArray(orgs) ? orgs : []) {
 				if (org.uuid && !orgIds.includes(org.uuid)) {
 					orgIds.push(org.uuid)
@@ -197,9 +199,12 @@ const ClaudeParser = {
 			try {
 				data = await apiGet(
 					`/api/organizations/${orgId}/chat_conversations/${conversationId}?tree=True&rendering_mode=messages&render_all_tools=true`,
+					undefined,
+					{ signal },
 				)
 				break
 			} catch (e) {
+				if (signal && signal.aborted) throw e
 				// wrong org for this conversation: try the next one
 			}
 		}

@@ -71,7 +71,8 @@ function _messageAttachments(message) {
 /** @type {ParserModule} */
 const ChatGPTParser = {
 	name: 'chatgpt',
-	matches: (hostname) => hostname.includes('chat.openai.com') || hostname.includes('chatgpt.com'),
+	hosts: ['chatgpt.com', 'www.chatgpt.com', 'chat.openai.com'],
+	matches: (hostname) => ChatGPTParser.hosts.includes(hostname),
 
 	/**
 	 * API-based extraction. chatgpt.com virtualizes the message list (infinite
@@ -82,7 +83,8 @@ const ChatGPTParser = {
 	 * conversation is unavailable, letting ChatDump fall back to DOM parsing.
 	 * @returns {Promise<RemoteConversation|null>}
 	 */
-	parseRemote: async () => {
+	parseRemote: async (context) => {
+		const signal = context && context.signal
 		if (typeof fetch !== 'function') {
 			return null
 		}
@@ -90,11 +92,11 @@ const ChatGPTParser = {
 		if (!pathMatch) {
 			return null
 		}
-		const session = await apiGet('/api/auth/session')
+		const session = await apiGet('/api/auth/session', undefined, { signal })
 		if (!session || !session.accessToken) {
 			return null
 		}
-		const data = await apiGet(`/backend-api/conversation/${pathMatch[1]}`, { authorization: `Bearer ${session.accessToken}` })
+		const data = await apiGet(`/backend-api/conversation/${pathMatch[1]}`, { authorization: `Bearer ${session.accessToken}` }, { signal })
 		if (!data || !data.mapping || !data.current_node) {
 			return null
 		}

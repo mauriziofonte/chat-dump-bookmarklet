@@ -64,11 +64,32 @@ function makeBrand(accent) {
 	return brand
 }
 
+// Grace period before revoking Blob URLs, so a download the user just
+// started can finish reading its Blob.
+const REVOKE_DELAY_MS = 30000
+
+// The toast on screen and the Blob URLs behind its download links.
+let current = { el: null, urls: [] }
+
 /**
- * Hides and removes a toast element.
+ * Revokes the Blob URLs of a toast after the grace period.
+ * @param {string[]} urls - The object URLs.
+ */
+function revokeLater(urls) {
+	if (urls.length) {
+		setTimeout(() => urls.forEach((u) => URL.revokeObjectURL(u)), REVOKE_DELAY_MS)
+	}
+}
+
+/**
+ * Hides and removes a toast element, releasing its Blob URLs.
  * @param {HTMLElement} el - The toast element.
  */
 function hideToast(el) {
+	if (current.el === el) {
+		revokeLater(current.urls)
+		current = { el: null, urls: [] }
+	}
 	el.classList.remove('on')
 	setTimeout(() => el.remove(), 400)
 }
@@ -78,9 +99,11 @@ function hideToast(el) {
  * @param {Node[]} children - Content nodes of the toast.
  * @param {string} accent - Accent color for the brand dot.
  * @param {number} duration - Auto-hide delay in ms; -1 keeps the toast until closed.
+ * @param {string[]} [urls] - Blob URLs owned by the toast; revoked when it is replaced or dismissed.
  * @returns {HTMLElement} The toast element.
  */
-function showToast(children, accent, duration) {
+function showToast(children, accent, duration, urls) {
+	revokeLater(current.urls)
 	document.querySelectorAll('.chatdump-toast').forEach((t) => t.remove())
 
 	const el = document.createElement('div')
@@ -93,6 +116,7 @@ function showToast(children, accent, duration) {
 	close.addEventListener('click', () => hideToast(el))
 	el.appendChild(close)
 
+	current = { el, urls: urls || [] }
 	document.body.appendChild(el)
 	requestAnimationFrame(() => el.classList.add('on'))
 	if (duration > 0) {
@@ -166,5 +190,6 @@ export function showExportOptions(options) {
 		],
 		ACCENTS.info,
 		-1,
+		[mdUrl, htmlUrl, txtUrl],
 	)
 }

@@ -26,6 +26,7 @@ Every format shares the same scaffolding:
 
 - **H1** — the conversation title.
 - **Provenance line** — localized, right under the title: tool link, creation date in your browser locale, and the URL of the original conversation.
+- **Escaping** – titles, attachment names, headers and link targets inserted into the HTML export are HTML-escaped; links are limited to `http(s)` URLs, and Markdown/TXT titles and attachment names are kept on one line.
 - **H2** — one per turn: `Human Prompt {n}` / `LLM Response {n}` (localized).
 - **Turn content** — headings authored by the LLM are demoted to start at H3 (relative hierarchy preserved, fenced code untouched), so they never collide with the turn scaffolding.
 - **Markers** — one-liners for non-text events: `> [Attachments: ...]`, `> [Artifact: title]` (followed by its source when available), `> [Tool: ...]`.
@@ -40,9 +41,13 @@ UI strings and export labels are localized in the 10 most spoken languages — E
 
 Copy the contents of [`dist/chatdump.bookmarklet.js`](./dist/chatdump.bookmarklet.js) into the URL field of a new browser bookmark. Alternatively, visit the [ChatDump web page](https://www.mauriziofonte.it/blog/post/chatdump-bookmarklet.html) and drag the bookmarklet link to your bookmarks toolbar.
 
-Then open a conversation on a supported platform and click the bookmark. The toast appears immediately in a loading state while the conversation is fetched (a 10-second deadline guards against slow APIs; on timeout or any API error the DOM fallback takes over transparently), then shows the export buttons.
+Then open a conversation on a supported platform and click the bookmark. The toast appears immediately in a loading state while the conversation is fetched (requests are cancelled after 15 s each / 90 s overall; on timeout or any API error the DOM fallback takes over), then shows the export buttons.
 
-> **Heads up!** As with any bookmarklet, review the source before installing it. `npm run build` reproduces `dist/` byte-for-byte from `src/`.
+The bookmarklet only runs on `https://` pages of exactly `chatgpt.com`, `www.chatgpt.com`, `chat.openai.com`, `claude.ai`, `www.claude.ai` and `gemini.google.com`.
+
+> **Heads up!** As with any bookmarklet, review the source before installing it. `npm run verify` rebuilds from `src/` and fails unless `dist/` matches byte for byte.
+
+> **Embedding the bookmarklet in HTML.** Spaces, `%`, `#`, `<`, `>` and control characters are percent-encoded; quotes, backslashes, braces and brackets stay raw (escaping them as `encodeURI` does would add ~14KB). Spaces must be encoded because Safari silently drops raw spaces from a pasted `javascript:` URL, which breaks the code with `SyntaxError: Unexpected token '{'`. Pasting into the bookmark URL field works as is; to embed the file in an `href`, escape `"` as `&quot;` first.
 
 ## Building from source
 
@@ -50,16 +55,20 @@ Then open a conversation on a supported platform and click the bookmark. The toa
 git clone https://github.com/mauriziofonte/chat-dump-bookmarklet.git
 cd chat-dump-bookmarklet
 npm install
-npm run build
+npm run build   # writes dist/chatdump.bookmarklet.js and prints its SHA-256
+npm run verify  # rebuilds in memory and fails if dist/ differs
+npm test
 ```
 
-The build bundles and minifies with `esbuild` (evergreen-browser targets: the chat platforms themselves require nothing less), prefixes `javascript:void`, URI-encodes, and writes `dist/chatdump.bookmarklet.js`. It **fails hard** if the encoded output exceeds the 62KB bookmarklet URL limit; current size is ~60KB, most of it the i18n tables once percent-encoded.
+The build bundles and minifies with `esbuild` (evergreen-browser targets: the chat platforms themselves require nothing less), prefixes `javascript:void`, encodes (see `encode.js`), and writes `dist/chatdump.bookmarklet.js`. It **fails hard** if the encoded output exceeds the 62KB bookmarklet URL limit; current size is ~51KB, most of it the i18n tables. To save space, the build stores spaces in the message tables as `~` and `t()` restores them (a space costs 3 bytes once encoded, `~` one).
 
 ## Development and testing
 
 Everything runs offline against fixtures — no live account needed.
 
 **DOM fixtures.** Open a conversation, save the full page as HTML in the project root named `<platform>-<n>.html` (e.g. `claude-1.html`). These files are gitignored.
+
+**Regression tests** (`npm test`, Node's built-in runner plus `jsdom`; no live account needed) cover the HTML-export escaping, hardening (hosts, redirects, timeouts, Blob URLs; `test/html-security.test.mjs`, `test/hardening.test.mjs`).
 
 **Test harness** (`jsdom`-based, plain Node scripts):
 
@@ -79,7 +88,7 @@ node test/meta-build.mjs    # per-module bundle size breakdown
 For in-browser debugging, decode the bundle and paste it into the DevTools console of a conversation page:
 
 ```bash
-node -e "console.log(decodeURI(require('fs').readFileSync('dist/chatdump.bookmarklet.js','utf8')).replace(/^javascript:void /,''))"
+node -e "console.log(decodeURIComponent(require('fs').readFileSync('dist/chatdump.bookmarklet.js','utf8').slice('javascript:'.length)).replace(/^void /,''))"
 ```
 
 Runtime failures are logged with the `[ChatDump Error]` prefix and surfaced in an error toast; remote-extraction fallbacks log a `[ChatDump]` warning.
@@ -91,16 +100,17 @@ When reverse-engineering a platform API, capture a HAR of the conversation page 
 ```text
 index.js                     entry point: calls run()
 src/ChatDump.js              orchestrator: platform detection, remote-first extraction
-                             with 10s deadline, DOM fallback, formatting, toast
-src/ParserFactory.js         hostname -> parser resolution
+                             with AbortController deadlines, DOM fallback, formatting, toast
+src/ParserFactory.js         exact HTTPS hostname -> parser resolution
 src/Parsers/*.js             per-platform ParserModule: parseRemote() (API) + parse() (DOM)
-src/RemoteUtils.js           shared helpers for API extractors (apiGet, marker, fence)
+src/RemoteUtils.js           apiFetch/apiGet (same-origin, no redirects, abortable), marker, fence
 src/ConversationProcessor.js item validation, UI-chrome cleanup, heading demotion
 src/OutputFormatter.js       Markdown / HTML / TXT documents (scaffolding, preamble)
 src/MarkdownRenderer.js      compact MD->HTML renderer for API-sourced turns
 src/HTMLCleaner.js           tag/attribute sanitizer for DOM-sourced HTML export
 src/I18n.js                  locale tables (10 languages + Italian) and t()
 src/UIManager.js             toast UI (loading / export / copied / error states)
+bundle.js, build.js, encode.js  reproducible build, --check mode, bookmarklet encoding
 src/Utilities.js             filename slug/timestamp
 types.js                     JSDoc typedefs (ConversationItem, ParserModule)
 ```
