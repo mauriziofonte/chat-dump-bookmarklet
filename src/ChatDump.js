@@ -6,9 +6,10 @@ import { generateFilename } from './Utilities.js'
 import { t } from './I18n.js'
 
 // Failsafe: a hung/slow conversation API must not leave the toast spinning
-// forever. Past this deadline the remote result is discarded and the DOM
-// parser takes over.
-const REMOTE_TIMEOUT_MS = 10000
+// forever. Past this overall deadline every in-flight request is cancelled
+// (AbortController) and the DOM parser takes over. Each request also has its
+// own shorter deadline (RemoteUtils.REQUEST_TIMEOUT_MS).
+const REMOTE_TIMEOUT_MS = 90000
 
 export async function run() {
 	try {
@@ -32,17 +33,20 @@ export async function run() {
 			// conversations. The loading toast is replaced by the export
 			// options (or an error) when the pipeline completes.
 			showLoading()
+			const controller = new AbortController()
+			const timer = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS)
 			try {
-				const deadline = new Promise((resolve) => setTimeout(() => resolve(null), REMOTE_TIMEOUT_MS))
-				const remote = await Promise.race([parser.parseRemote(), deadline])
+				const remote = await parser.parseRemote({ signal: controller.signal })
 				if (remote && remote.items.length) {
 					rawConversations = remote.items
 					title = remote.title || title
 				} else if (remote === null) {
-					console.warn('[ChatDump] Remote extraction unavailable or timed out, falling back to DOM parsing')
+					console.warn('[ChatDump] Remote extraction unavailable, falling back to DOM parsing')
 				}
 			} catch (error) {
 				console.warn('[ChatDump] Remote extraction failed, falling back to DOM parsing', error)
+			} finally {
+				clearTimeout(timer)
 			}
 		}
 		if (!rawConversations) {

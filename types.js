@@ -32,9 +32,10 @@
  * Defines the interface for a platform-specific parser module.
  * @typedef {object} ParserModule
  * @property {string} name - The lowercase name of the platform (e.g., 'chatgpt').
- * @property {function(string): boolean} matches - A function that returns true if the parser is for the given hostname.
+ * @property {function(string): boolean} matches - Returns true when the hostname is in `hosts` (exact match).
  * @property {function(Document): ConversationItem[]} parse - A function that extracts all conversation turns from the document body.
- * @property {function(): Promise<RemoteConversation|null>} [parseRemote] - Optional
+ * @property {string[]} hosts - Exact hostnames (HTTPS only) the parser is allowed on.
+ * @property {function({signal?: AbortSignal}=): Promise<RemoteConversation|null>} [parseRemote] - Optional
  *           API-based extractor. Runs before the DOM parser: platforms that virtualize
  *           the message list (claude.ai keeps only ~12 messages in the DOM) can only be
  *           exported completely through their same-origin conversation API. Returning

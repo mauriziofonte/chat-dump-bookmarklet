@@ -2,6 +2,7 @@ import '../types.js'
 import { cleanHtml } from './HTMLCleaner.js'
 import { renderMarkdown } from './MarkdownRenderer.js'
 import { t } from './I18n.js'
+import { escapeHtml, htmlLink, safeHttpUrl, oneLine } from './Html.js'
 import TurndownService from 'turndown'
 import { tables } from 'turndown-plugin-gfm'
 
@@ -26,14 +27,31 @@ function _getConversationHeader(role, num) {
 function _preamble(format) {
 	const locale = (typeof navigator !== 'undefined' && navigator.language) || 'en'
 	const date = new Date().toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' })
-	const href = window.location.href
+	// The page URL is attacker-influenced (query, fragment): validate and normalize it
+	const href = safeHttpUrl(window.location.href) || 'unknown'
 	if (format === 'md') {
-		return t('preamble', { format: 'Markdown', tool: `[ChatDump](${REPO_URL})`, date, url: `[${href}](${href})` })
+		const md = href === 'unknown' ? href : `[${href.replace(/[[\]]/g, '\\$&')}](${href.replace(/[()]/g, encodeURIComponent)})`
+		return t('preamble', { format: 'Markdown', tool: `[ChatDump](${REPO_URL})`, date, url: md })
 	}
 	if (format === 'html') {
-		return t('preamble', { format: 'HTML', tool: `<a href="${REPO_URL}">ChatDump</a>`, date, url: `<a href="${href}">${href}</a>` })
+		// t() output is escaped around the placeholders: escape the localized text, then splice markup
+		return _htmlPreamble({ tool: htmlLink(REPO_URL, 'ChatDump'), date, url: href === 'unknown' ? escapeHtml(href) : htmlLink(href) })
 	}
 	return t('preamble', { format: 'TXT', tool: `ChatDump (${REPO_URL})`, date, url: href })
+}
+
+/**
+ * Renders the HTML preamble: the localized template is escaped first, and the
+ * pre-escaped link markup is substituted afterwards through unique tokens.
+ * @param {{tool: string, date: string, url: string}} parts - Pre-escaped markup parts.
+ * @returns {string} The preamble HTML.
+ */
+function _htmlPreamble(parts) {
+	const tokens = { format: 'HTML', tool: '\u0001tool\u0001', date: '\u0001date\u0001', url: '\u0001url\u0001' }
+	return escapeHtml(t('preamble', tokens))
+		.replace('\u0001tool\u0001', () => parts.tool)
+		.replace('\u0001date\u0001', () => escapeHtml(parts.date))
+		.replace('\u0001url\u0001', () => parts.url)
 }
 
 /**
@@ -85,7 +103,7 @@ function _attachmentsMd(item) {
 	if (!item.attachments || !item.attachments.length) {
 		return ''
 	}
-	return `> [${t('attachments')}: ${item.attachments.join(', ')}]\n\n`
+	return `> [${t('attachments')}: ${item.attachments.map(oneLine).join(', ')}]\n\n`
 }
 
 /**
@@ -102,7 +120,7 @@ export function formatAsMarkdown(conversations, title) {
 		return `${acc}## ${header}\n\n${_attachmentsMd(c)}${_itemContent(ts, c)}\n\n`
 	}, '')
 
-	return `# ${title}\n\n${_preamble('md')}\n\n${body}`
+	return `# ${oneLine(title)}\n\n${_preamble('md')}\n\n${body}`
 }
 
 /**
@@ -114,12 +132,12 @@ export function formatAsMarkdown(conversations, title) {
 export function formatAsHtml(conversations, title) {
 	const body = conversations.reduce((acc, c) => {
 		const header = _getConversationHeader(c.role, c.num)
-		const attachments = c.attachments && c.attachments.length ? `\n<p><em>${t('attachments')}: ${c.attachments.join(', ')}</em></p>` : ''
+		const attachments = c.attachments && c.attachments.length ? `\n<p><em>${escapeHtml(t('attachments'))}: ${c.attachments.map(escapeHtml).join(', ')}</em></p>` : ''
 		const content = typeof c.markdown === 'string' ? renderMarkdown(c.markdown) : cleanHtml(c.content)
-		return `${acc}\n<h2>${header}</h2>${attachments}\n${content}`
+		return `${acc}\n<h2>${escapeHtml(header)}</h2>${attachments}\n${content}`
 	}, '')
 
-	return `<h1>${title}</h1>\n<p><em>${_preamble('html')}</em></p>${body}`
+	return `<h1>${escapeHtml(title)}</h1>\n<p><em>${_preamble('html')}</em></p>${body}`
 }
 
 /**
@@ -133,10 +151,11 @@ export function formatAsHtml(conversations, title) {
 export function formatAsTxt(conversations, title) {
 	const ts = _turndown()
 	const rule = '-'.repeat(64)
+	title = oneLine(title)
 
 	const body = conversations.reduce((acc, c) => {
 		const header = _getConversationHeader(c.role, c.num)
-		const attachments = c.attachments && c.attachments.length ? `[${t('attachments')}: ${c.attachments.join(', ')}]\n\n` : ''
+		const attachments = c.attachments && c.attachments.length ? `[${t('attachments')}: ${c.attachments.map(oneLine).join(', ')}]\n\n` : ''
 		return `${acc}${rule}\n${header}\n${rule}\n\n${attachments}${_itemContent(ts, c)}\n\n`
 	}, '')
 
