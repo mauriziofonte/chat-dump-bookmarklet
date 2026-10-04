@@ -1,0 +1,471 @@
+{
+  "title": "Widget Gasket Types",
+  "create_time": 1700000000,
+  "update_time": 1700040000.5,
+  "moderation_results": [],
+  "conversation_id": "c0ffee00-0000-4000-8000-00000000abcd",
+  "default_model_slug": "test-model-alpha",
+  "is_archived": false,
+  "messages": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "author": {
+        "role": "user",
+        "name": null,
+        "metadata": {}
+      },
+      "create_time": 1700000000.125,
+      "update_time": 1700000001.5,
+      "content": {
+        "content_type": "text",
+        "parts": [
+          "Which gasket size fits a standard widget flange: \"G1\" or \"G3\"?"
+        ]
+      },
+      "status": "finished_successfully",
+      "end_turn": null,
+      "weight": 1,
+      "metadata": {
+        "request_id": "req-0",
+        "can_save": false
+      },
+      "recipient": "all",
+      "channel": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "author": {
+        "role": "assistant",
+        "name": null,
+        "metadata": {}
+      },
+      "create_time": 1700000001,
+      "update_time": 1700000001,
+      "content": {
+        "content_type": "thoughts",
+        "thoughts": [],
+        "source_analysis_msg_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "status": "finished_successfully",
+      "end_turn": false,
+      "weight": 1,
+      "metadata": {
+        "model_slug": "test-model-alpha",
+        "parent_id": "00000000-0000-4000-8000-000000000001",
+        "thinking_effort": "standard"
+      },
+      "recipient": "all",
+      "channel": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "author": {
+        "role": "assistant",
+        "name": null,
+        "metadata": {}
+      },
+      "create_time": 1700000002.25,
+      "update_time": 1700000003.5,
+      "content": {
+        "content_type": "text",
+        "parts": [
+          "I’ll look up the gasket sizes first."
+        ]
+      },
+      "status": "finished_successfully",
+      "end_turn": false,
+      "weight": 1,
+      "metadata": {
+        "model_slug": "test-model-alpha",
+        "parent_id": "node-aaaa",
+        "thinking_effort": "standard",
+        "is_thinking_preamble_message": true
+      },
+      "recipient": "all",
+      "channel": "commentary"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "author": {
+        "role": "assistant",
+        "name": null,
+        "metadata": {}
+      },
+      "create_time": 1700000003.75,
+      "update_time": 1700000008.5,
+      "content": {
+        "content_type": "thoughts",
+        "thoughts": [],
+        "source_analysis_msg_id": "00000000-0000-4000-8000-000000000004"
+      },
+      "status": "finished_successfully",
+      "end_turn": false,
+      "weight": 1,
+      "metadata": {
+        "model_slug": "test-model-alpha",
+        "parent_id": "00000000-0000-4000-8000-000000000003",
+        "thinking_effort": "standard",
+        "is_visually_hidden_from_conversation": false
+      },
+      "recipient": "all",
+      "channel": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "author": {
+        "role": "assistant",
+        "name": null,
+        "metadata": {}
+      },
+      "create_time": 1700000008.25,
+      "update_time": 1700000008.25,
+      "content": {
+        "content_type": "reasoning_recap",
+        "content": "Worked for 12s"
+      },
+      "status": "finished_successfully",
+      "end_turn": false,
+      "weight": 1,
+      "metadata": {
+        "model_slug": "test-model-alpha",
+        "parent_id": "node-bbbb",
+        "thinking_effort": "standard"
+      },
+      "recipient": "all",
+      "channel": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000006",
+      "author": {
+        "role": "assistant",
+        "name": null,
+        "metadata": {
+          "real_author": "tool:web"
+        }
+      },
+      "create_time": 1700000008.5,
+      "update_time": 1700000015.75,
+      "content": {
+        "content_type": "text",
+        "parts": [
+          "**Typically, “G1,” also called the standard flange gasket**, is the type used on most widgets with a flange. For example, the vendor specifies G1 compatibility for the [G1 datasheet](https://docs.example.com/gaskets/g1-datasheet.html), §4.2. genui{\"citation\":{\"ref\":\"turn1view0\"}}\n\n**Some compact widgets use “G3,” or the mini gasket.** The [G3 overview](https://docs.example.com/gaskets/g3-overview.html), §4.2, is one example. genui{\"citation\":{\"ref\":\"turn2view1\"}}\n\nFor buying a gasket, check the exact widget model. Send its model number or a photo, and I can identify the size."
+        ]
+      },
+      "status": "finished_successfully",
+      "end_turn": true,
+      "weight": 1,
+      "metadata": {
+        "model_slug": "test-model-alpha",
+        "parent_id": "00000000-0000-4000-8000-000000000005",
+        "thinking_effort": "standard",
+        "content_references": [
+          {
+            "matched_text": "genui{\"citation\":{\"ref\":\"turn1view0\"}}",
+            "prefix": "genui",
+            "start_idx": 242,
+            "end_idx": 283,
+            "safe_urls": [
+              "https://docs.example.com/gaskets/g1-datasheet.html",
+              "https://docs.example.com/gaskets/g1-datasheet.html?utm_source=chatgpt.com"
+            ],
+            "refs": [],
+            "alt": "",
+            "prompt_text": null,
+            "type": "grouped_webpages",
+            "items": [
+              {
+                "title": "G1 Gasket Datasheet",
+                "url": "https://docs.example.com/gaskets/g1-datasheet.html?utm_source=chatgpt.com",
+                "attribution": "docs.example.com",
+                "pub_date": null,
+                "snippet": "Total lines: 10",
+                "attribution_segments": null,
+                "supporting_websites": null,
+                "refs": [],
+                "hue": null,
+                "attributions": null
+              }
+            ],
+            "fallback_items": null,
+            "status": "done",
+            "error": null,
+            "style": null
+          },
+          {
+            "matched_text": "genui{\"citation\":{\"ref\":\"turn2view1\"}}",
+            "prefix": "genui",
+            "start_idx": 432,
+            "end_idx": 473,
+            "safe_urls": [
+              "https://docs.example.com/gaskets/g3-overview.html",
+              "https://docs.example.com/gaskets/g3-overview.html?utm_source=chatgpt.com"
+            ],
+            "refs": [],
+            "alt": "",
+            "prompt_text": null,
+            "type": "grouped_webpages",
+            "items": [
+              {
+                "title": "G3 Gasket Overview",
+                "url": "https://docs.example.com/gaskets/g3-overview.html?utm_source=chatgpt.com",
+                "attribution": "docs.example.com",
+                "pub_date": null,
+                "snippet": "Total lines: 10",
+                "attribution_segments": null,
+                "supporting_websites": null,
+                "refs": [],
+                "hue": null,
+                "attributions": null
+              }
+            ],
+            "fallback_items": null,
+            "status": "done",
+            "error": null,
+            "style": null
+          },
+          {
+            "matched_text": " ",
+            "start_idx": 548,
+            "end_idx": 548,
+            "alt": "",
+            "type": "sources_footnote",
+            "sources": [
+              {
+                "title": "G1 Gasket Datasheet",
+                "url": "https://docs.example.com/gaskets/g1-datasheet.html?utm_source=chatgpt.com",
+                "attribution": "docs.example.com"
+              }
+            ],
+            "has_images": false
+          }
+        ]
+      },
+      "recipient": "all",
+      "channel": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000007",
+      "author": {
+        "role": "user",
+        "name": null,
+        "metadata": {}
+      },
+      "create_time": 1700000100.5,
+      "update_time": 1700000102,
+      "content": {
+        "content_type": "text",
+        "parts": [
+          "And what about the Acme X-series?"
+        ]
+      },
+      "status": "finished_successfully",
+      "end_turn": null,
+      "weight": 1,
+      "metadata": {
+        "request_id": "req-6",
+        "can_save": false
+      },
+      "recipient": "all",
+      "channel": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000008",
+      "author": {
+        "role": "assistant",
+        "name": null,
+        "metadata": {}
+      },
+      "create_time": 1700000101,
+      "update_time": 1700000101,
+      "content": {
+        "content_type": "thoughts",
+        "thoughts": [],
+        "source_analysis_msg_id": "00000000-0000-4000-8000-000000000008"
+      },
+      "status": "finished_successfully",
+      "end_turn": false,
+      "weight": 1,
+      "metadata": {
+        "model_slug": "test-model-alpha",
+        "parent_id": "00000000-0000-4000-8000-000000000007",
+        "thinking_effort": "standard"
+      },
+      "recipient": "all",
+      "channel": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000009",
+      "author": {
+        "role": "assistant",
+        "name": null,
+        "metadata": {}
+      },
+      "create_time": 1700000102.75,
+      "update_time": 1700000103.5,
+      "content": {
+        "content_type": "text",
+        "parts": [
+          "I’ll check the Acme X-series specifications."
+        ]
+      },
+      "status": "finished_successfully",
+      "end_turn": false,
+      "weight": 1,
+      "metadata": {
+        "model_slug": "test-model-alpha",
+        "parent_id": "node-cccc",
+        "thinking_effort": "standard",
+        "is_thinking_preamble_message": true
+      },
+      "recipient": "all",
+      "channel": "commentary"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000010",
+      "author": {
+        "role": "assistant",
+        "name": null,
+        "metadata": {}
+      },
+      "create_time": 1700000103.75,
+      "update_time": 1700000108,
+      "content": {
+        "content_type": "thoughts",
+        "thoughts": [],
+        "source_analysis_msg_id": "00000000-0000-4000-8000-000000000010"
+      },
+      "status": "finished_successfully",
+      "end_turn": false,
+      "weight": 1,
+      "metadata": {
+        "model_slug": "test-model-alpha",
+        "parent_id": "00000000-0000-4000-8000-000000000009",
+        "thinking_effort": "standard",
+        "is_visually_hidden_from_conversation": false
+      },
+      "recipient": "all",
+      "channel": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000011",
+      "author": {
+        "role": "assistant",
+        "name": null,
+        "metadata": {}
+      },
+      "create_time": 1700000108.25,
+      "update_time": 1700000108.25,
+      "content": {
+        "content_type": "reasoning_recap",
+        "content": "Worked for 12s"
+      },
+      "status": "finished_successfully",
+      "end_turn": false,
+      "weight": 1,
+      "metadata": {
+        "model_slug": "test-model-alpha",
+        "parent_id": "node-dddd",
+        "thinking_effort": "standard"
+      },
+      "recipient": "all",
+      "channel": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000012",
+      "author": {
+        "role": "assistant",
+        "name": null,
+        "metadata": {
+          "real_author": "tool:web"
+        }
+      },
+      "create_time": 1700000110,
+      "update_time": 1700040000.25,
+      "content": {
+        "content_type": "text",
+        "parts": [
+          "For the **Acme X-series**, choose **“G1” / standard flange gasket**.\n\nThe vendor identifies the socket as **FLG-1** in its [documentation](https://wiki.example.org/acme-x-series/getting-started/), and lists the same [gasket kit](https://shop.example.net/gasket-kit-p-5475.html) as compatible with the whole series. genui{\"citation\":{\"refs\":[\"turn4view3\",\"turn4view1\"]}}\n\nSo, for those widgets, buy a **G1 gasket**."
+        ]
+      },
+      "status": "finished_successfully",
+      "end_turn": true,
+      "weight": 1,
+      "metadata": {
+        "model_slug": "test-model-alpha",
+        "parent_id": "00000000-0000-4000-8000-000000000011",
+        "thinking_effort": "standard",
+        "content_references": [
+          {
+            "matched_text": "genui{\"citation\":{\"refs\":[\"turn4view3\",\"turn4view1\"]}}",
+            "prefix": "genui",
+            "start_idx": 315,
+            "end_idx": 372,
+            "safe_urls": [
+              "https://wiki.example.org/acme-x-series/getting-started/",
+              "https://wiki.example.org/acme-x-series/getting-started/?utm_source=chatgpt.com"
+            ],
+            "refs": [],
+            "alt": "",
+            "prompt_text": null,
+            "type": "grouped_webpages",
+            "items": [
+              {
+                "title": "Getting Started with the Acme X-Series",
+                "url": "https://wiki.example.org/acme-x-series/getting-started/?utm_source=chatgpt.com",
+                "attribution": "Acme Wiki",
+                "pub_date": null,
+                "snippet": "Total lines: 10",
+                "attribution_segments": null,
+                "supporting_websites": [
+                  {
+                    "title": "Gasket Kit for the X-Series",
+                    "url": "https://shop.example.net/gasket-kit-p-5475.html?utm_source=chatgpt.com",
+                    "attribution": "Acme Shop",
+                    "pub_date": null,
+                    "snippet": "Total lines: 20"
+                  }
+                ],
+                "refs": [],
+                "hue": null,
+                "attributions": null
+              }
+            ],
+            "fallback_items": null,
+            "status": "done",
+            "error": null,
+            "style": null
+          },
+          {
+            "matched_text": " ",
+            "start_idx": 387,
+            "end_idx": 387,
+            "alt": "",
+            "type": "sources_footnote",
+            "sources": [
+              {
+                "title": "Getting Started with the Acme X-Series",
+                "url": "https://wiki.example.org/acme-x-series/getting-started/?utm_source=chatgpt.com",
+                "attribution": "Acme Wiki"
+              },
+              {
+                "title": "Gasket Kit for the X-Series",
+                "url": "https://shop.example.net/gasket-kit-p-5475.html?utm_source=chatgpt.com",
+                "attribution": "Acme Shop"
+              }
+            ],
+            "has_images": false
+          }
+        ]
+      },
+      "recipient": "all",
+      "channel": null
+    }
+  ],
+  "current_node": "00000000-0000-4000-8000-000000000012",
+  "page_info": {
+    "start_cursor": "00000000-0000-4000-8000-000000000001",
+    "end_cursor": "00000000-0000-4000-8000-000000000012",
+    "has_previous_page": false,
+    "has_next_page": false
+  }
+}

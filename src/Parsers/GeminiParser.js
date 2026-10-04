@@ -1,5 +1,6 @@
 import '../../types.js'
 import { createConversationItem } from '../ConversationProcessor.js'
+import { apiFetch } from '../RemoteUtils.js'
 
 const CONVERSATION_PATH = /\/app\/([a-z0-9]+)/i
 const RPC_ID = 'hNvQHb'
@@ -32,10 +33,11 @@ function _collectFilenames(node, names) {
  * @param {string} conversationId - The "c_..." conversation id.
  * @param {number} count - Max turns to return.
  * @param {string|null} cursor - Continuation token from a previous page.
+ * @param {AbortSignal} [signal] - Cancels the request.
  * @returns {Promise<any>} The decoded RPC payload.
  * @throws {Error} on HTTP errors, missing auth token or undecodable payloads.
  */
-async function _rpc(conversationId, count, cursor) {
+async function _rpc(conversationId, count, cursor, signal) {
 	const wiz = window.WIZ_global_data || {}
 	const at = wiz.SNlM0e
 	if (!at) {
@@ -55,14 +57,15 @@ async function _rpc(conversationId, count, cursor) {
 	const inner = JSON.stringify([conversationId, count, cursor, 1, [0], [4], null, 1])
 	const freq = JSON.stringify([[[RPC_ID, inner, null, 'generic']]])
 
-	const response = await fetch(`/_/BardChatUi/data/batchexecute?${query}`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-		body: `f.req=${encodeURIComponent(freq)}&at=${encodeURIComponent(at)}`,
-	})
-	if (!response.ok) {
-		throw new Error(`batchexecute returned ${response.status}`)
-	}
+	const response = await apiFetch(
+		`/_/BardChatUi/data/batchexecute?${query}`,
+		{
+			method: 'POST',
+			headers: { 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+			body: `f.req=${encodeURIComponent(freq)}&at=${encodeURIComponent(at)}`,
+		},
+		{ signal },
+	)
 	const text = await response.text()
 
 	// Anti-JSON envelope: ")]}'" prefix, then length lines interleaved with
@@ -132,7 +135,8 @@ function _mapTurns(turns) {
 /** @type {ParserModule} */
 const GeminiParser = {
 	name: 'gemini',
-	matches: (hostname) => hostname.includes('gemini.google.com'),
+	hosts: ['gemini.google.com'],
+	matches: (hostname) => GeminiParser.hosts.includes(hostname),
 
 	/**
 	 * API-based extraction. gemini.google.com lazy-loads the message list
@@ -143,7 +147,8 @@ const GeminiParser = {
 	 * whole history), the DOM parser is preferred by returning null.
 	 * @returns {Promise<RemoteConversation|null>}
 	 */
-	parseRemote: async () => {
+	parseRemote: async (context) => {
+		const signal = context && context.signal
 		if (typeof fetch !== 'function') {
 			return null
 		}
@@ -156,11 +161,11 @@ const GeminiParser = {
 		let pageSize = PAGE_SIZE
 		let payload
 		try {
-			payload = await _rpc(conversationId, pageSize, null)
+			payload = await _rpc(conversationId, pageSize, null, signal)
 		} catch (e) {
 			// oversized page rejected? retry once with the size the app itself uses
 			pageSize = 10
-			payload = await _rpc(conversationId, pageSize, null)
+			payload = await _rpc(conversationId, pageSize, null, signal)
 		}
 
 		const turns = []
@@ -183,7 +188,7 @@ const GeminiParser = {
 				break
 			}
 			try {
-				payload = await _rpc(conversationId, pageSize, cursor)
+				payload = await _rpc(conversationId, pageSize, cursor, signal)
 			} catch (e) {
 				stalled = true
 				break

@@ -1,0 +1,47 @@
+{
+  "uuid": "11111111-2222-3333-4444-555555555555",
+  "name": "Parser review <b>draft</b>",
+  "model": "claude-conversation-default",
+  "created_at": "2026-09-30T08:00:00.000000+00:00",
+  "chat_messages": [
+    {
+      "uuid": "m1",
+      "sender": "human",
+      "created_at": "2026-09-30T08:00:01.000000+00:00",
+      "updated_at": "2026-09-30T08:00:01.000000+00:00",
+      "content": [{ "type": "text", "text": "Review this spec and the screenshot.\n\n```python\nprint('genui{\"citation\":{\"ref\":\"literal\"}}')\n```" }],
+      "attachments": [{ "file_name": "spec_v2.md", "extracted_content": "# Spec\n\nAttached body text." }],
+      "files": [{ "file_name": "<img src=x onerror=alert(1)>.png" }]
+    },
+    {
+      "uuid": "m2",
+      "sender": "assistant",
+      "model": "claude-model-a",
+      "created_at": "2026-09-30T08:00:05.000000+00:00",
+      "updated_at": "2026-09-30T08:00:50.000000+00:00",
+      "content": [
+        { "type": "thinking", "thinking": "PRIVATE REASONING MUST NOT APPEAR", "start_timestamp": "2026-09-30T08:00:05.100Z", "stop_timestamp": "2026-09-30T08:00:10.000Z" },
+        { "type": "text", "text": "Here is the review.\n\n## Findings\n\n| Item | Status |\n| --- | --- |\n| Parser | ok |", "start_timestamp": "2026-09-30T08:00:10.100Z", "stop_timestamp": "2026-09-30T08:00:30.000Z" },
+        { "type": "tool_use", "name": "web_search", "input": { "query": "markdown table syntax" } },
+        { "type": "tool_result", "content": [{ "type": "text", "text": "RAW TOOL RESULT MUST NOT APPEAR" }] },
+        { "type": "tool_use", "name": "artifacts", "input": { "command": "create", "title": "fix.py", "language": "python", "content": "def fix():\n    return 1" } },
+        { "type": "text", "text": "The artifact above applies the fix.", "start_timestamp": "2026-09-30T08:00:40.000Z", "stop_timestamp": "2026-09-30T08:00:45.250Z" }
+      ]
+    },
+    {
+      "uuid": "m3",
+      "sender": "human",
+      "created_at": "2026-09-30T08:05:00.000000+00:00",
+      "updated_at": "2026-09-30T08:05:00.000000+00:00",
+      "content": [{ "type": "text", "text": "Thanks. One more thing: try model B." }]
+    },
+    {
+      "uuid": "m4",
+      "sender": "assistant",
+      "model": "claude-model-b",
+      "created_at": "2026-09-30T08:05:02.000000+00:00",
+      "updated_at": "2026-09-30T08:05:20.000000+00:00",
+      "content": [{ "type": "text", "text": "Done with model B.", "start_timestamp": "2026-09-30T08:05:02.500Z", "stop_timestamp": "2026-09-30T08:05:19.000Z" }]
+    }
+  ]
+}
