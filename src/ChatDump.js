@@ -1,14 +1,15 @@
 import { getPlatformParser, getSupportedPlatforms } from './ParserFactory.js'
 import { processConversations } from './ConversationProcessor.js'
-import { formatAsMarkdown, formatAsHtml, formatAsTxt } from './OutputFormatter.js'
+import { formatAsMarkdown, formatAsHtml, formatAsTxt, buildNotice } from './OutputFormatter.js'
 import { initUI, showError, showExportOptions, showLoading } from './UIManager.js'
 import { generateFilename } from './Utilities.js'
 import { t } from './I18n.js'
 
 // Failsafe: a hung/slow conversation API must not leave the toast spinning
-// forever. Past this deadline the remote result is discarded and the DOM
-// parser takes over.
-const REMOTE_TIMEOUT_MS = 10000
+// forever. Past this overall deadline every in-flight request is cancelled
+// (AbortController) and the DOM parser takes over. Each request also has its
+// own shorter deadline (RemoteUtils.REQUEST_TIMEOUT_MS).
+const REMOTE_TIMEOUT_MS = 90000
 
 export async function run() {
 	try {
@@ -27,22 +28,38 @@ export async function run() {
 		// unavailable, fall back to parsing a clone of the body.
 		let title = document.title
 		let rawConversations = null
+		/** @type {ExportInfo} */
+		let info = { source: 'dom', complete: false, warnings: [] }
+		const exportedAt = new Date().toISOString()
 		if (parser.parseRemote) {
 			// Immediate feedback: the API roundtrip can take seconds on long
 			// conversations. The loading toast is replaced by the export
 			// options (or an error) when the pipeline completes.
 			showLoading()
+			const controller = new AbortController()
+			const timer = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS)
 			try {
-				const deadline = new Promise((resolve) => setTimeout(() => resolve(null), REMOTE_TIMEOUT_MS))
-				const remote = await Promise.race([parser.parseRemote(), deadline])
+				const remote = await parser.parseRemote({ signal: controller.signal })
 				if (remote && remote.items.length) {
 					rawConversations = remote.items
 					title = remote.title || title
-				} else if (remote === null) {
-					console.warn('[ChatDump] Remote extraction unavailable or timed out, falling back to DOM parsing')
+					info = {
+						source: 'api',
+						complete: remote.complete === true,
+						warnings: remote.warnings || [],
+						stats: remote.stats,
+						models: remote.models,
+						defaultModel: remote.defaultModel,
+					}
+				} else {
+					info.reason = 'no usable data'
+					console.warn('[ChatDump] API unavailable, using DOM')
 				}
 			} catch (error) {
-				console.warn('[ChatDump] Remote extraction failed, falling back to DOM parsing', error)
+				info.reason = error.message
+				console.warn('[ChatDump] API failed, using DOM', error)
+			} finally {
+				clearTimeout(timer)
 			}
 		}
 		if (!rawConversations) {
@@ -53,17 +70,19 @@ export async function run() {
 			throw new Error(t('no_conversations'))
 		}
 
+		info.exportedAt = exportedAt
+
 		// 4. Process and clean the extracted conversations
 		const processedConversations = processConversations(rawConversations)
 
 		// 5. Format conversations into final outputs
-		const mdText = formatAsMarkdown(processedConversations, title)
-		const htmlText = formatAsHtml(processedConversations, title)
-		const txtText = formatAsTxt(processedConversations, title)
+		const mdText = formatAsMarkdown(processedConversations, title, info)
+		const htmlText = formatAsHtml(processedConversations, title, info)
+		const txtText = formatAsTxt(processedConversations, title, info)
 
 		// 6. Generate filename and show export dialog
 		const filename = generateFilename(parser.name, title)
-		showExportOptions({ mdText, htmlText, txtText, filename })
+		showExportOptions({ mdText, htmlText, txtText, filename, warning: buildNotice(info) && !info.complete ? t('toast_incomplete') : '' })
 	} catch (error) {
 		console.error('[ChatDump Error]', error)
 		showError(error.message)

@@ -2,6 +2,7 @@ import '../../types.js'
 import { createConversationItem } from '../ConversationProcessor.js'
 import { t } from '../I18n.js'
 import { apiGet, marker as _marker, fence as _fence } from '../RemoteUtils.js'
+import { toIso, latestIso, modelId, unique } from '../Metadata.js'
 
 const CONVERSATION_PATH = /\/chat\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
 
@@ -44,6 +45,23 @@ function _assistantMarkdown(message) {
 	}
 	const markdown = parts.join('\n\n')
 	return markdown || (message.text || '').trim()
+}
+
+/**
+ * Reads the metadata the API records for a message. Completion is the latest
+ * content-block stop_timestamp (assistant messages only); the model is the
+ * message's own identifier, never the conversation-level one.
+ * @param {object} message - A chat_messages entry from the conversation API.
+ * @returns {{created: string|null, completed: string|null, updated: string|null, models: string[]}}
+ */
+function _meta(message) {
+	const blocks = Array.isArray(message.content) ? message.content : []
+	return {
+		created: toIso(message.created_at),
+		completed: message.sender === 'assistant' ? latestIso(blocks.map((b) => toIso(b && b.stop_timestamp))) : null,
+		updated: toIso(message.updated_at),
+		models: unique([modelId(message.model)]),
+	}
 }
 
 /**
@@ -156,7 +174,8 @@ function _domResponseContent(node) {
 /** @type {ParserModule} */
 const ClaudeParser = {
 	name: 'claude',
-	matches: (hostname) => hostname.includes('claude.ai'),
+	hosts: ['claude.ai', 'www.claude.ai'],
+	matches: (hostname) => ClaudeParser.hosts.includes(hostname),
 
 	/**
 	 * API-based extraction. claude.ai virtualizes the message list (only the
@@ -166,7 +185,8 @@ const ClaudeParser = {
 	 * pages, endpoint changes), letting ChatDump fall back to DOM parsing.
 	 * @returns {Promise<RemoteConversation|null>}
 	 */
-	parseRemote: async () => {
+	parseRemote: async (context) => {
+		const signal = context && context.signal
 		if (typeof fetch !== 'function') {
 			return null
 		}
@@ -182,7 +202,7 @@ const ClaudeParser = {
 			orgIds.push(cookieOrg)
 		}
 		try {
-			const orgs = await apiGet('/api/organizations')
+			const orgs = await apiGet('/api/organizations', undefined, { signal })
 			for (const org of Array.isArray(orgs) ? orgs : []) {
 				if (org.uuid && !orgIds.includes(org.uuid)) {
 					orgIds.push(org.uuid)
@@ -197,9 +217,12 @@ const ClaudeParser = {
 			try {
 				data = await apiGet(
 					`/api/organizations/${orgId}/chat_conversations/${conversationId}?tree=True&rendering_mode=messages&render_all_tools=true`,
+					undefined,
+					{ signal },
 				)
 				break
 			} catch (e) {
+				if (signal && signal.aborted) throw e
 				// wrong org for this conversation: try the next one
 			}
 		}
@@ -213,12 +236,18 @@ const ClaudeParser = {
 		for (const message of data.chat_messages) {
 			if (message.sender === 'human') {
 				const human = _humanMarkdown(message)
-				items.push(createConversationItem({ role: 'PROMPT', num: ++promptNum, markdown: human.markdown, attachments: human.attachments }))
+				items.push(createConversationItem({ role: 'PROMPT', num: ++promptNum, markdown: human.markdown, attachments: human.attachments, meta: _meta(message) }))
 			} else if (message.sender === 'assistant') {
-				items.push(createConversationItem({ role: 'RESPONSE', num: ++responseNum, markdown: _assistantMarkdown(message) }))
+				items.push(createConversationItem({ role: 'RESPONSE', num: ++responseNum, markdown: _assistantMarkdown(message), meta: _meta(message) }))
 			}
 		}
-		return { title: data.name || document.title, items }
+		return {
+			title: data.name || document.title,
+			items,
+			source: 'api',
+			models: unique(items.reduce((all, i) => all.concat(i.meta.models), [])),
+			defaultModel: modelId(data.model) || undefined,
+		}
 	},
 
 	parse: (body) => {

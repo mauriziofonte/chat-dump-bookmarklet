@@ -3,7 +3,9 @@
   "version": "1.4.0",
   "main": "index.js",
   "scripts": {
-    "build": "./build.js"
+    "build": "node build.js",
+    "verify": "node build.js --check",
+    "test": "node --test test/*.test.mjs"
   },
   "type": "module",
   "homepage": "https://www.mauriziofonte.it/blog/post/chatdump-bookmarklet.html",
